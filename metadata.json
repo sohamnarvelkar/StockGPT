@@ -1,0 +1,5 @@
+{
+  "name": "StockGPT",
+  "description": "An advanced AI financial analysis engine providing probability-based market forecasts, technical analysis, and portfolio optimization.",
+  "requestFramePermissions": []
+}
