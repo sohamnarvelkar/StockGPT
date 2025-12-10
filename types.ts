@@ -23,6 +23,7 @@ export interface NewsArticle {
   url: string;
   published: string;
   summary: string;
+  sentiment: 'Positive' | 'Negative' | 'Neutral';
 }
 
 export interface StockGPTResponse {

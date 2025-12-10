@@ -47,7 +47,7 @@ const ScenarioChart: React.FC<Props> = ({ scenarios, forecasts, currentPrice, cu
   return (
     <div className="flex flex-col h-full w-full">
       {/* Header & Controls */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex justify-between items-center mb-2">
         <div>
             <h3 className="text-cyan-400 font-mono text-sm">PRICE FORECAST MODELS</h3>
             <span className="text-xs text-slate-500">Estimates Only</span>
@@ -73,7 +73,7 @@ const ScenarioChart: React.FC<Props> = ({ scenarios, forecasts, currentPrice, cu
       </div>
 
       {/* Chart */}
-      <div className="w-full h-64 font-sans mb-6">
+      <div className="w-full h-64 font-sans mb-2">
         <ResponsiveContainer width="100%" height="100%">
             <BarChart
             data={chartData}
@@ -111,9 +111,9 @@ const ScenarioChart: React.FC<Props> = ({ scenarios, forecasts, currentPrice, cu
       </div>
 
       {/* Scenario Details Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {sortedScenarios.map((s) => (
-            <div key={s.caseName} className="text-center p-4 bg-slate-800/40 rounded-xl border border-slate-700/50 hover:bg-slate-800/60 transition-colors">
+            <div key={s.caseName} className="text-center p-3 bg-slate-800/40 rounded-xl border border-slate-700/50 hover:bg-slate-800/60 transition-colors">
                 <div className={`text-sm font-bold mb-1 ${
                 s.caseName === 'Bull' ? 'text-emerald-400' : 
                 s.caseName === 'Bear' ? 'text-rose-400' : 'text-amber-400'

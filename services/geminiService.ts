@@ -4,7 +4,7 @@ import { StockGPTResponse } from "../types";
 const apiKey = process.env.API_KEY || '';
 const REQUEST_TIMEOUT_MS = 90000; // 90s timeout for complex chains
 
-class StockGPTError extends Error {
+export class StockGPTError extends Error {
   constructor(message: string, public isRetryable: boolean = false) {
     super(message);
     this.name = "StockGPTError";
@@ -58,14 +58,36 @@ async function retryOperation<T>(operation: () => Promise<T>, retries = 3, delay
   } catch (error: any) {
     if (retries <= 0) throw error;
     
-    // Classify Retryable Errors
-    const isNetworkError = error.name === 'TypeError' && (error.message.includes('fetch') || error.message.includes('network') || error.message.includes('Failed to fetch'));
-    const isServerOverload = error.status === 503 || error.status === 429 || error.message?.includes('overloaded');
-    const isJsonError = error.message.includes('JSON') || error.message.includes('structure') || error.message.includes('validation');
-    const isTimeout = error.message === 'TIMEOUT';
+    // Normalize error message
+    const msg = (error.message || '').toLowerCase();
+    const status = error.status || error.code; // Gemini SDK often puts HTTP status in 'code' or 'status'
 
-    if (isNetworkError || isServerOverload || isJsonError || isTimeout) {
-      console.warn(`Analysis failed (${error.message}). Retrying in ${delay}ms... (${retries} attempts left)`);
+    // Classify Retryable Errors
+    // 1. Network / XHR Errors (often code 6 or 'Rpc failed')
+    const isNetworkError = 
+        msg.includes('fetch') || 
+        msg.includes('network') || 
+        msg.includes('xhr') || 
+        msg.includes('rpc failed') ||
+        msg.includes('load failed');
+    
+    // 2. Server Overload / Rate Limit
+    const isServerOverload = 
+        status === 503 || 
+        status === 429 || 
+        msg.includes('overloaded') || 
+        msg.includes('capacity');
+    
+    // 3. Generic 500s or Unknowns that might be transient
+    const isServerErr = status >= 500;
+
+    // 4. JSON parse errors (sometimes model returns partial output on interrupt)
+    const isJsonError = msg.includes('json') || msg.includes('structure') || msg.includes('validation');
+    
+    const isTimeout = msg === 'timeout';
+
+    if (isNetworkError || isServerOverload || isServerErr || isJsonError || isTimeout) {
+      console.warn(`Analysis failed (${msg}). Retrying in ${delay}ms... (${retries} attempts left)`);
       await new Promise(resolve => setTimeout(resolve, delay));
       return retryOperation(operation, retries - 1, delay * 2);
     }
@@ -137,13 +159,18 @@ export const analyzeStock = async (query: string): Promise<StockGPTResponse> => 
 
     7. GLOBAL MARKET & MACRO ANALYSIS (Dedicated Section):
        - REQUIRED: Create a dedicated section titled "Global Market & Macro Analysis".
-       - This section must differentiate between GLOBAL factors and LOCAL factors based on the asset.
-       - IF INDIAN ASSET: Focus on RBI Policy, Monsoon, Inflation, FII Flows, US Fed impact on INR.
-       - IF US/GLOBAL: Focus on Fed Policy, Treasury Yields, Inflation, Geopolitics.
+       - **MANDATORY COVERAGE**: You MUST explicitly cover these 5 factors in this section:
+         1. **Interest Rates & Bond Yields**: How current rates affect valuations.
+         2. **Inflation Trends**: CPI/WPI trends and input cost pressures.
+         3. **Central Bank Policies**: Fed stance (Global/US) or RBI stance (India).
+         4. **Sector Rotation**: Is money flowing into or out of this sector?
+         5. **Geopolitical Influences**: Supply chain risks, wars, or trade tariffs.
+       - Differentiate between GLOBAL impact and LOCAL impact.
 
     8. RECENT NEWS INTELLIGENCE:
        - Use Google Search to find 3-5 of the most recent and relevant news articles.
        - Prioritize major financial news outlets.
+       - **SENTIMENT ANALYSIS**: For each article, analyze the headline and summary to determine if the news is "Positive", "Negative", or "Neutral" for the stock.
        - Ensure URLs are valid.
 
     9. RISK ASSESSMENT:
@@ -173,7 +200,7 @@ export const analyzeStock = async (query: string): Promise<StockGPTResponse> => 
       "scenarios": [ ...copy of 12M array for backward compatibility... ],
       "signal": { "recommendation": "BUY/SELL/HOLD", "confidenceScore": number, "rationale": "string" },
       "portfolioAllocation": [{ "asset": "string", "percentage": number }],
-      "news": [{ "title": "string", "source": "string", "url": "string", "published": "string", "summary": "string" }]
+      "news": [{ "title": "string", "source": "string", "url": "string", "published": "string", "summary": "string", "sentiment": "Positive"|"Negative"|"Neutral" }]
     }
   `;
 
@@ -196,8 +223,8 @@ export const analyzeStock = async (query: string): Promise<StockGPTResponse> => 
     const candidate = response.candidates?.[0];
     if (candidate?.finishReason && candidate.finishReason !== 'STOP') {
         const reason = candidate.finishReason;
-        if (reason === 'SAFETY') throw new Error("Safety filters triggered. Please modify your query.");
-        if (reason === 'RECITATION') throw new Error("Content blocked due to copyright.");
+        if (reason === 'SAFETY') throw new Error("SAFETY"); // Standardize for catch block
+        if (reason === 'RECITATION') throw new Error("RECITATION");
         throw new Error(`Model stopped unexpectedly: ${reason}`);
     }
 
@@ -259,29 +286,47 @@ export const analyzeStock = async (query: string): Promise<StockGPTResponse> => 
     
     if (error instanceof StockGPTError) throw error;
 
-    // Error Mapping for User Experience
-    if (error.message === 'TIMEOUT') {
-        throw new StockGPTError("Analysis timed out. The market is complex—please try again or simplify your query.", true);
+    const msg = (error.message || '').toLowerCase();
+    const status = error.status || error.code;
+
+    // --- Mapped Error Messages for UI ---
+
+    // 1. Network / XHR (The specific error user reported)
+    if (msg.includes('rpc failed') || msg.includes('xhr') || msg.includes('network') || msg.includes('fetch') || msg.includes('load failed')) {
+        throw new StockGPTError("Network Error: Unable to connect to AI services. This may be due to a firewall, VPN, or unstable internet connection.", true);
     }
 
-    if (error.name === 'TypeError' && (error.message.includes('fetch') || error.message.includes('network'))) {
-         throw new StockGPTError("Network connection failed. Please check your internet connection.");
+    // 2. Timeout
+    if (msg === 'timeout') {
+        throw new StockGPTError("Analysis Timed Out: The request took too long. Please try a simpler query or check your connection.", true);
+    }
+
+    // 3. Auth
+    if (status === 401 || status === 403 || msg.includes('key')) {
+        throw new StockGPTError("Authorization Failed: Please verify your API Key configuration.", false);
+    }
+
+    // 4. Rate Limit
+    if (status === 429 || msg.includes('quota') || msg.includes('limit')) {
+        throw new StockGPTError("Server Busy: High traffic volume. Please wait 10-15 seconds and try again.", true);
+    }
+
+    // 5. Server Error
+    if (status >= 500) {
+        throw new StockGPTError("Service Unavailable: Our AI providers are currently experiencing downtime. Please try again later.", true);
+    }
+
+    // 6. Safety
+    if (msg.includes('safety') || msg.includes('blocked')) {
+        throw new StockGPTError("Safety Filter Triggered: Please rephrase your query.", false);
+    }
+
+    // 7. Data Format
+    if (msg.includes('json') || msg.includes('parse') || msg.includes('validation')) {
+        throw new StockGPTError("Data Processing Error: Received unexpected format from AI. Retrying usually fixes this.", true);
     }
     
-    if (error.status === 400) {
-        throw new StockGPTError("Invalid request. Please check your query syntax.");
-    }
-    if (error.status === 401 || error.status === 403) {
-        throw new StockGPTError("API Access Denied. Please check your API Key configuration.");
-    }
-    if (error.status === 429) {
-        throw new StockGPTError("High Traffic Volume. We're momentarily overloaded—please try again in 10 seconds.", true);
-    }
-    if (error.status >= 500) {
-        throw new StockGPTError("AI Service Unavailable. Our providers are experiencing issues.", true);
-    }
-    
-    // Catch-all with descriptive message
+    // Catch-all
     throw new StockGPTError(error.message || "An unexpected system error occurred.", true);
   }
 };

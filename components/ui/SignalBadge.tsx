@@ -117,6 +117,10 @@ const SignalBadge: React.FC<Props> = ({ signal }) => {
         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-80 p-4 bg-slate-900/95 border border-slate-600 rounded-lg shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none text-left backdrop-blur-md">
           <p className="text-xs font-semibold text-white mb-3 border-b border-slate-700 pb-2">Score Composition Logic</p>
           
+          <p className="text-[10px] text-slate-400 mb-4 leading-relaxed bg-slate-800/50 p-2 rounded border border-slate-700/50">
+             The confidence score reflects the AI's weighted assessment of <span className="text-slate-200">technical indicators</span>, <span className="text-slate-200">fundamental strength</span>, and broad <span className="text-slate-200">market sentiment</span>.
+          </p>
+
           <div className="space-y-3">
             <div>
               <p className="text-[10px] font-bold text-cyan-400 mb-1 uppercase tracking-wider">Technical Indicators</p>

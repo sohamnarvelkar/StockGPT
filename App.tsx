@@ -79,7 +79,7 @@ function App() {
 
       {/* Navbar */}
       <nav className="relative w-full border-b border-slate-800 bg-slate-900/50 backdrop-blur-sm z-50">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between">
           <div 
             className="flex items-center gap-2 cursor-pointer" 
             onClick={handleReset}
@@ -151,7 +151,7 @@ function App() {
         </div>
       </nav>
 
-      <main className="relative z-10 px-4 py-8">
+      <main className="relative z-10 px-3 py-4">
         
         {viewState === ViewState.ANALYZING && (
           <div className="min-h-[60vh] flex flex-col items-center justify-center">
@@ -167,7 +167,7 @@ function App() {
         )}
 
         {viewState === ViewState.LANDING && (
-          <div className="max-w-3xl mx-auto pt-20 text-center animate-fade-in-up">
+          <div className="max-w-3xl mx-auto pt-12 text-center animate-fade-in-up">
             <div className="mb-8 space-y-4">
               <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-white mb-6">
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">
@@ -181,7 +181,7 @@ function App() {
               </p>
             </div>
 
-            <div className="bg-slate-800/50 p-1 rounded-2xl border border-slate-700 shadow-2xl backdrop-blur-xl max-w-2xl mx-auto mt-10">
+            <div className="bg-slate-800/50 p-1 rounded-2xl border border-slate-700 shadow-2xl backdrop-blur-xl max-w-2xl mx-auto mt-8">
               <form onSubmit={handleSubmit} className="relative flex items-center">
                 <Search className="absolute left-4 text-slate-500" />
                 <input
@@ -229,7 +229,7 @@ function App() {
             )}
 
             {/* Feature Pills */}
-            <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto">
+            <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto">
               {[
                 { title: 'Global Coverage', desc: 'US, India, Europe & Crypto', icon: '🌍' },
                 { title: 'Probability Models', desc: 'Bull/Bear/Base scenarios', icon: '🎯' },
@@ -243,7 +243,7 @@ function App() {
               ))}
             </div>
             
-            <div className="mt-12 text-xs text-slate-600 font-mono">
+            <div className="mt-8 text-xs text-slate-600 font-mono">
               POWERED BY GEMINI 2.5 FLASH • REAL-TIME GROUNDING
             </div>
           </div>
