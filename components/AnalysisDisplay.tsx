@@ -93,8 +93,16 @@ const AnalysisDisplay: React.FC<Props> = ({ data, onReset, onOpenAlertModal }) =
     }
   };
 
-  const handleExportDOC = () => { /* ... simplified for brevity, same logic as before ... */ };
-  const handleShare = async () => { /* ... simplified for brevity, same logic as before ... */ };
+  const handleShare = async () => {
+    try {
+        await navigator.clipboard.writeText(window.location.href);
+        setShareStatus('COPIED');
+        setTimeout(() => setShareStatus('IDLE'), 2000);
+    } catch (err) {
+        console.error('Failed to copy', err);
+    }
+  };
+  
   const handleSave = () => {
     try {
       const saveKey = 'stockgpt_saved_analyses';
@@ -129,6 +137,9 @@ const AnalysisDisplay: React.FC<Props> = ({ data, onReset, onOpenAlertModal }) =
         
         <div className="flex items-center gap-2 self-end sm:self-auto">
             <button onClick={onOpenAlertModal} className="p-2.5 text-slate-300 bg-slate-800/50 hover:bg-slate-700 rounded-lg border border-slate-700 hover:text-cyan-400 transition-colors" title="Set Alert"><Bell size={20} /></button>
+            <button onClick={handleShare} className="p-2.5 text-slate-300 bg-slate-800/50 hover:bg-slate-700 rounded-lg border border-slate-700 hover:text-white transition-colors" title="Share Analysis">
+                {shareStatus === 'COPIED' ? <Check size={20} className="text-emerald-400"/> : <Share2 size={20} />}
+            </button>
             <button onClick={handleSave} disabled={isSaved} className={`p-2.5 rounded-lg border transition-colors ${isSaved ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'text-slate-300 bg-slate-800/50 border-slate-700 hover:text-white'}`} title="Save Analysis">{isSaved ? <Check size={20} /> : <Bookmark size={20} />}</button>
             <button onClick={handleExportPDF} disabled={isExporting} className="p-2.5 text-slate-300 bg-slate-800/50 hover:bg-slate-700 rounded-lg border border-slate-700 hover:text-white transition-colors" title="Export PDF">{isExporting ? <span className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full"/> : <Printer size={20} />}</button>
             <button onClick={onReset} className="px-5 py-2.5 text-sm font-bold text-white bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 rounded-lg shadow-lg hover:shadow-cyan-500/20 transition-all uppercase tracking-wide">New Analysis</button>

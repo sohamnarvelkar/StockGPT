@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ViewState, APP_NAME } from './constants';
 import { StockGPTResponse } from './types';
 import { analyzeStock } from './services/geminiService';
@@ -22,7 +22,7 @@ function App() {
   const [error, setError] = useState<{ message: string; isRetryable: boolean } | null>(null);
   
   // Auth Integration
-  const { user, logout } = useAuth();
+  const { user, logout, isLoading } = useAuth();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
@@ -31,9 +31,36 @@ function App() {
   const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
   const [showAlertMenu, setShowAlertMenu] = useState(false);
 
+  // Deep Linking & Auto-Run Logic
+  useEffect(() => {
+    if (isLoading) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const query = params.get('q');
+    
+    // Only auto-run if we are in LANDING state and have no data yet
+    if (query && viewState === ViewState.LANDING && !analysisData) {
+        setInputText(query);
+        
+        if (user) {
+            // User is logged in, run immediately
+            performAnalysis(query);
+        } else {
+            // User needs to login first, open modal
+            // After login, this effect will re-run due to [user] dependency
+            setIsAuthModalOpen(true);
+        }
+    }
+  }, [user, isLoading]);
+
   const performAnalysis = async (query: string) => {
     setViewState(ViewState.ANALYZING);
     setError(null);
+
+    // Update URL without reloading
+    const url = new URL(window.location.href);
+    url.searchParams.set('q', query);
+    window.history.pushState({}, '', url);
 
     try {
       const result = await analyzeStock(query);
@@ -43,7 +70,6 @@ function App() {
       console.error(err);
       
       const message = err.message || "Failed to analyze. Please try again.";
-      // Default to true if isRetryable is not defined, unless it's a known non-retryable type
       const isRetryable = err.isRetryable !== undefined ? err.isRetryable : true;
       
       setError({ message, isRetryable });
@@ -75,6 +101,11 @@ function App() {
     setInputText('');
     setAnalysisData(null);
     setError(null);
+    
+    // Clear URL param
+    const url = new URL(window.location.href);
+    url.searchParams.delete('q');
+    window.history.pushState({}, '', url);
   };
 
   const handleLogout = () => {
