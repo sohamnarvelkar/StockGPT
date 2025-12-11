@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { StockGPTResponse } from "../types";
 
@@ -11,6 +12,44 @@ export class StockGPTError extends Error {
   }
 }
 
+// Robust Data Repair
+const repairData = (data: any): any => {
+    if (!data || typeof data !== 'object') return data;
+
+    // Ensure arrays
+    if (!Array.isArray(data.sections)) data.sections = [];
+    if (!Array.isArray(data.scenarios)) data.scenarios = [];
+    
+    // Filter invalid scenarios
+    data.scenarios = data.scenarios.filter((s: any) => s && s.caseName && s.priceRange);
+
+    // Fix Forecasts
+    if (!data.forecasts || typeof data.forecasts !== 'object') {
+        const fallback = data.scenarios.length > 0 ? data.scenarios : [];
+        data.forecasts = {
+            "1M": fallback,
+            "6M": fallback,
+            "12M": fallback
+        };
+    }
+
+    // Ensure Signal
+    if (!data.signal || typeof data.signal !== 'object') {
+        data.signal = { 
+            recommendation: 'HOLD', 
+            confidenceScore: 50, 
+            rationale: 'Insufficient data for signal generation.' 
+        };
+    }
+
+    // Ensure critical strings
+    if (!data.symbol) data.symbol = "UNKNOWN";
+    if (!data.summary) data.summary = "No summary available.";
+    if (!data.companyName) data.companyName = data.symbol;
+
+    return data;
+};
+
 // Validation Helper to prevent UI crashes
 const validateSchema = (data: any): boolean => {
   if (!data || typeof data !== 'object') return false;
@@ -20,14 +59,9 @@ const validateSchema = (data: any): boolean => {
   
   // Required Objects/Arrays
   if (!data.signal || typeof data.signal !== 'object') return false;
-  if (!Array.isArray(data.scenarios) || data.scenarios.length === 0) return false;
-  if (!Array.isArray(data.sections)) return false;
-
-  // Validate Scenario Structure
-  const validScenarios = data.scenarios.every((s: any) => 
-    s.caseName && s.priceRange && s.probability
-  );
-  if (!validScenarios) return false;
+  
+  // We need at least some content
+  if (data.sections.length === 0 && data.scenarios.length === 0) return false;
 
   return true;
 };
@@ -51,43 +85,49 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
     });
 }
 
-// Exponential Backoff Retry
-async function retryOperation<T>(operation: () => Promise<T>, retries = 3, delay = 1000): Promise<T> {
+// Exponential Backoff Retry with Smart Filtering
+async function retryOperation<T>(operation: () => Promise<T>, retries = 2, delay = 1000): Promise<T> {
   try {
     return await operation();
   } catch (error: any) {
+    // Determine if we should stop immediately (Non-retryable errors)
+    const status = error.status || error.code;
+    const msg = (error.message || '').toLowerCase();
+
+    // 400: Bad Request, 401: Unauthorized, 403: Forbidden, 404: Not Found
+    if (status === 400 || status === 401 || status === 403 || status === 404) {
+        throw error;
+    }
+    
+    // Safety filters are not retryable
+    if (msg.includes('safety') || msg.includes('recitation')) {
+        throw error;
+    }
+
     if (retries <= 0) throw error;
     
-    // Normalize error message
-    const msg = (error.message || '').toLowerCase();
-    const status = error.status || error.code; // Gemini SDK often puts HTTP status in 'code' or 'status'
-
     // Classify Retryable Errors
-    // 1. Network / XHR Errors (often code 6 or 'Rpc failed')
     const isNetworkError = 
         msg.includes('fetch') || 
         msg.includes('network') || 
         msg.includes('xhr') || 
         msg.includes('rpc failed') ||
-        msg.includes('load failed');
+        msg.includes('load failed') ||
+        msg.includes('connection');
     
-    // 2. Server Overload / Rate Limit
     const isServerOverload = 
-        status === 503 || 
         status === 429 || 
+        status === 503 || 
         msg.includes('overloaded') || 
-        msg.includes('capacity');
+        msg.includes('capacity') ||
+        msg.includes('quota'); // Sometimes temporary
     
-    // 3. Generic 500s or Unknowns that might be transient
     const isServerErr = status >= 500;
-
-    // 4. JSON parse errors (sometimes model returns partial output on interrupt)
-    const isJsonError = msg.includes('json') || msg.includes('structure') || msg.includes('validation');
-    
+    const isJsonError = msg.includes('json') || msg.includes('structure') || msg.includes('validation') || msg.includes('syntax') || msg.includes('parsing');
     const isTimeout = msg === 'timeout';
 
     if (isNetworkError || isServerOverload || isServerErr || isJsonError || isTimeout) {
-      console.warn(`Analysis failed (${msg}). Retrying in ${delay}ms... (${retries} attempts left)`);
+      console.warn(`Attempt failed (${msg}). Retrying in ${delay}ms... (${retries} attempts left)`);
       await new Promise(resolve => setTimeout(resolve, delay));
       return retryOperation(operation, retries - 1, delay * 2);
     }
@@ -97,116 +137,70 @@ async function retryOperation<T>(operation: () => Promise<T>, retries = 3, delay
 }
 
 export const analyzeStock = async (query: string): Promise<StockGPTResponse> => {
-  // 1. Input Validation
   const cleanQuery = query.trim();
   if (!cleanQuery) throw new StockGPTError("Query cannot be empty.");
-  if (cleanQuery.length < 2) throw new StockGPTError("Query is too short. Please enter a valid ticker or question.");
 
-  // 2. Connectivity Check
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
-    throw new StockGPTError("No internet connection detected. Please check your network settings.");
+    throw new StockGPTError("No internet connection detected.", true);
   }
 
   if (!apiKey) {
-    throw new StockGPTError("API Key is missing. Please set it in the environment.");
+    throw new StockGPTError("API Key is missing. Please configure your environment.", false);
   }
 
   const ai = new GoogleGenAI({ apiKey });
 
   const systemPrompt = `
-    You are StockGPT, an advanced financial analysis engine. 
-    You combine quantitative modeling, fundamental analysis, technical indicators, and macro assessment.
+    You are StockGPT, an advanced financial analysis engine.
     
-    Your goal is to provide a probability-based deep dive into the user's query (ticker, portfolio, or macro question).
+    TASK: Provide a deep financial analysis for: "${cleanQuery}".
     
-    SCOPE & RECOGNITION:
-    - GLOBAL MARKETS: US (NYSE/NASDAQ), Europe, Asia.
-    - INDIAN MARKETS (CRITICAL PRIORITY): You must accurately identify and prioritize Indian stocks (NSE/BSE).
-      * Recognize tickers with ".NS" (NSE) or ".BO" (BSE) suffixes (e.g. "RELIANCE.NS", "TCS.BO").
-      * Recognize common Indian company names even without suffixes (e.g., "Reliance", "TCS", "HDFC Bank", "Infosys", "ITC", "Tata Motors", "Bajaj Finance", "Zomato").
-      * If a ticker/name is ambiguous (e.g., "TATAMOTORS" vs US ADR, or "Maruti"), ALWAYS prioritize the primary Indian listing (NSE) unless the user explicitly asks for the ADR or foreign listing.
-    - CRYPTO & COMMODITIES.
-
-    Follow these strict tasks:
+    GUIDELINES:
     1. MARKET IDENTIFICATION:
-       - Determine the listing exchange and currency.
-       - **Indian Stocks**: STRICTLY use Indian Rupees (₹) for all price targets, current prices, and financial figures (Crores/Lakhs preferred for fundamentals).
-       - **US/Global Stocks**: Use the local currency ($, €, etc.).
-       - Benchmarks: Use S&P 500/Nasdaq for US, Nifty 50/Sensex for India.
+       - Identify the correct listing (NSE/BSE for India, NYSE/NASDAQ for US).
+       - Use local currency (₹ for India, $ for US).
+    
+    2. STRUCTURED ANALYSIS:
+       - Executive Summary (Business, Moat).
+       - Fundamentals (Revenue, Margins, P/E).
+       - Technicals (RSI, MACD, Support/Resistance).
+       - Macro Analysis (Inflation, Rates, Geopolitics).
+       - Risks.
 
-    2. COMPREHENSIVE ANALYSIS:
-       - Business Model & Competitive Moat.
-       - Fundamentals: Revenue growth, Margins (EBITDA/PAT), P/E vs Sector, Debt/Equity.
-       - For Indian stocks: Analyze recent Quarterly Results (Q1/Q2/Q3/Q4), YoY growth, and order book positions.
-
-    3. TECHNICAL ANALYSIS:
-       - Moving Averages (20/50/200 DMA).
-       - RSI, MACD, Bollinger Bands.
-       - Key Support & Resistance Levels.
-       - For Indian Stocks: Compare relative strength against Nifty 50 or Bank Nifty.
-
-    4. PRICE PREDICTIONS (Probabilistic) - MULTI-TIMEFRAME:
-       - Generate Bull/Base/Bear scenarios for THREE distinct timeframes:
-         * Short-term (1 Month)
-         * Medium-term (6 Months)
-         * Long-term (12 Months)
-       - Provide target prices, probabilities, and specific drivers for each.
-
-    5. SIGNAL GENERATION:
-       - Buy/Sell/Hold with Confidence Score (0-100).
-
-    6. PORTFOLIO OPTIMIZATION (if applicable).
-
-    7. GLOBAL MARKET & MACRO ANALYSIS (Dedicated Section):
-       - REQUIRED: Create a dedicated section titled "Global Market & Macro Analysis".
-       - **MANDATORY COVERAGE**: You MUST explicitly cover these 5 factors in this section:
-         1. **Interest Rates & Bond Yields**: How current rates affect valuations.
-         2. **Inflation Trends**: CPI/WPI trends and input cost pressures.
-         3. **Central Bank Policies**: Fed stance (Global/US) or RBI stance (India).
-         4. **Sector Rotation**: Is money flowing into or out of this sector?
-         5. **Geopolitical Influences**: Supply chain risks, wars, or trade tariffs.
-       - Differentiate between GLOBAL impact and LOCAL impact.
-
-    8. RECENT NEWS INTELLIGENCE:
-       - Use Google Search to find 3-5 of the most recent and relevant news articles.
-       - Prioritize major financial news outlets.
-       - **SENTIMENT ANALYSIS**: For each article, analyze the headline and summary to determine if the news is "Positive", "Negative", or "Neutral" for the stock.
-       - Ensure URLs are valid.
-
-    9. RISK ASSESSMENT:
-       - Company specific and Macro risks.
-
-    CONSTRAINTS:
-    - Never guarantee outcomes. Use "likely", "probable".
-    - Be professional, concise, and data-driven.
-    - Format text sections with Markdown (lists, bolding).
-    - Use Google Search to get the latest price, news, and live market data.
-
+    3. PREDICTIONS & SIGNAL:
+       - Short/Medium/Long term price targets (Bull/Base/Bear).
+       - Signal: BUY/SELL/HOLD with confidence score (0-100).
+    
+    4. TOOLS:
+       - Use Google Search for REAL-TIME price, news, and data.
+    
     CRITICAL OUTPUT FORMAT:
-    You must return ONLY a valid JSON object. Do not include any conversational text.
-    Structure:
+    - You must return ONLY a valid JSON object.
+    - DO NOT use markdown code blocks.
+    - DO NOT add any text before or after the JSON.
+    - JSON Structure:
     {
-      "symbol": "string (Ticker or MACRO)",
+      "symbol": "string",
       "companyName": "string",
       "currentPrice": number,
       "currency": "string",
       "summary": "string",
       "sections": [{ "title": "string", "content": "string" }],
+      "scenarios": [{ "caseName": "Bull"|"Base"|"Bear", "priceRange": "string", "probability": "string", "description": "string", "targetPrice": number }],
       "forecasts": {
-        "1M": [{ "caseName": "Bull"|"Base"|"Bear", "priceRange": "string", "probability": "string", "description": "string", "targetPrice": number }],
-        "6M": [{ "caseName": "Bull"|"Base"|"Bear", "priceRange": "string", "probability": "string", "description": "string", "targetPrice": number }],
-        "12M": [{ "caseName": "Bull"|"Base"|"Bear", "priceRange": "string", "probability": "string", "description": "string", "targetPrice": number }]
+        "1M": [ ...scenarios... ],
+        "6M": [ ...scenarios... ],
+        "12M": [ ...scenarios... ]
       },
-      "scenarios": [ ...copy of 12M array for backward compatibility... ],
-      "signal": { "recommendation": "BUY/SELL/HOLD", "confidenceScore": number, "rationale": "string" },
+      "signal": { "recommendation": "string", "confidenceScore": number, "rationale": "string" },
+      "metrics": { "peRatio": "string", "marketCap": "string", "epsGrowth": "string", "profitMargin": "string", "roe": "string", "rsi": "string", "shortTermTrend": "string" },
       "portfolioAllocation": [{ "asset": "string", "percentage": number }],
-      "news": [{ "title": "string", "source": "string", "url": "string", "published": "string", "summary": "string", "sentiment": "Positive"|"Negative"|"Neutral" }]
+      "recommendations": [{ "symbol": "string", "name": "string", "action": "string", "targetPrice": number, "rationale": "string", "metrics": { ... } }],
+      "news": [{ "title": "string", "source": "string", "url": "string", "published": "string", "summary": "string", "sentiment": "string" }]
     }
   `;
 
-  // Encapsulate Logic for Retry
   const performAnalysis = async (): Promise<StockGPTResponse> => {
-    // API Call
     const response: GenerateContentResponse = await withTimeout(
       ai.models.generateContent({
         model: 'gemini-2.5-flash',
@@ -219,64 +213,51 @@ export const analyzeStock = async (query: string): Promise<StockGPTResponse> => 
       REQUEST_TIMEOUT_MS
     );
 
-    // Finish Reason Handling
     const candidate = response.candidates?.[0];
     if (candidate?.finishReason && candidate.finishReason !== 'STOP') {
-        const reason = candidate.finishReason;
-        if (reason === 'SAFETY') throw new Error("SAFETY"); // Standardize for catch block
-        if (reason === 'RECITATION') throw new Error("RECITATION");
-        throw new Error(`Model stopped unexpectedly: ${reason}`);
+        // Handle specific finish reasons as errors
+        throw new Error(`FINISH_REASON: ${candidate.finishReason}`);
     }
 
-    let text = response.text;
+    let text = response.text || "";
     if (!text) throw new Error("Received empty response from AI.");
 
-    // Sanitization
-    text = text.trim();
-    if (text.startsWith('```json')) {
-      text = text.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-    } else if (text.startsWith('```')) {
-      text = text.replace(/^```\s*/, '').replace(/\s*```$/, '');
-    }
-
-    // Parsing
-    const jsonStart = text.indexOf('{');
-    const jsonEnd = text.lastIndexOf('}');
-    
-    if (jsonStart === -1 || jsonEnd === -1 || jsonEnd <= jsonStart) {
-      throw new Error("Invalid JSON structure received from model.");
-    }
-    
-    text = text.substring(jsonStart, jsonEnd + 1);
-
-    let data: StockGPTResponse;
+    // Aggressive JSON Extraction
     try {
-        data = JSON.parse(text) as StockGPTResponse;
-    } catch (parseError) {
-        throw new Error("JSON Parse Error: Malformed data structure.");
-    }
+        // 1. Remove markdown wrapping if present
+        text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+        
+        // 2. Find outer braces
+        const jsonStart = text.indexOf('{');
+        const jsonEnd = text.lastIndexOf('}');
+        
+        if (jsonStart === -1 || jsonEnd === -1 || jsonEnd <= jsonStart) {
+             throw new Error("No JSON object found in response.");
+        }
+        
+        const jsonString = text.substring(jsonStart, jsonEnd + 1);
+        
+        let rawData = JSON.parse(jsonString);
+        
+        // 3. Repair and Validate
+        rawData = repairData(rawData);
 
-    // Fallback: If AI fails to populate 'forecasts' but has 'scenarios', mock the forecasts
-    if (!data.forecasts && data.scenarios) {
-      data.forecasts = {
-        "1M": data.scenarios,
-        "6M": data.scenarios,
-        "12M": data.scenarios
-      };
-    }
+        if (!validateSchema(rawData)) {
+            console.error("Schema Invalid:", rawData);
+            throw new Error("Validation failed: Data structure incomplete.");
+        }
 
-    // Schema Validation
-    if (!validateSchema(data)) {
-        console.error("Schema Validation Failed:", data);
-        throw new Error("Response validation failed: Missing critical fields (Signal, Scenarios, or Symbol).");
-    }
+        // 4. Attach Metadata
+        if (candidate.groundingMetadata) {
+            rawData.groundingMetadata = candidate.groundingMetadata;
+        }
 
-    // Attach Metadata
-    if (candidate.groundingMetadata) {
-        data.groundingMetadata = candidate.groundingMetadata;
-    }
+        return rawData as StockGPTResponse;
 
-    return data;
+    } catch (e: any) {
+        console.error("Parsing/Validation Error:", e.message);
+        throw new Error(`JSON Processing Error: ${e.message}`);
+    }
   };
 
   try {
@@ -289,44 +270,36 @@ export const analyzeStock = async (query: string): Promise<StockGPTResponse> => 
     const msg = (error.message || '').toLowerCase();
     const status = error.status || error.code;
 
-    // --- Mapped Error Messages for UI ---
-
-    // 1. Network / XHR (The specific error user reported)
-    if (msg.includes('rpc failed') || msg.includes('xhr') || msg.includes('network') || msg.includes('fetch') || msg.includes('load failed')) {
-        throw new StockGPTError("Network Error: Unable to connect to AI services. This may be due to a firewall, VPN, or unstable internet connection.", true);
+    // Specific Error Mapping
+    if (msg.includes('finish_reason: safety') || msg.includes('safety')) {
+         throw new StockGPTError("Safety Filter Triggered: The query produced protected content. Please rephrase.", false);
     }
-
-    // 2. Timeout
-    if (msg === 'timeout') {
-        throw new StockGPTError("Analysis Timed Out: The request took too long. Please try a simpler query or check your connection.", true);
+    if (msg.includes('finish_reason: recitation') || msg.includes('recitation')) {
+         throw new StockGPTError("Content Limit: Response blocked due to recitation/copyright checks.", false);
     }
-
-    // 3. Auth
-    if (status === 401 || status === 403 || msg.includes('key')) {
-        throw new StockGPTError("Authorization Failed: Please verify your API Key configuration.", false);
+    if (status === 400) {
+         throw new StockGPTError("Invalid Request: The query could not be processed.", false);
     }
-
-    // 4. Rate Limit
+    if (status === 401 || msg.includes('api key')) {
+         throw new StockGPTError("Authorization Failed: Invalid or missing API Key.", false);
+    }
+    if (status === 403) {
+         throw new StockGPTError("Access Denied: You may not have access to this model or region.", false);
+    }
+    if (status === 404) {
+         throw new StockGPTError("Model Not Found: The requested AI model is unavailable.", false);
+    }
     if (status === 429 || msg.includes('quota') || msg.includes('limit')) {
-        throw new StockGPTError("Server Busy: High traffic volume. Please wait 10-15 seconds and try again.", true);
+         throw new StockGPTError("High Traffic: Server is busy. Please try again in a moment.", true);
     }
-
-    // 5. Server Error
-    if (status >= 500) {
-        throw new StockGPTError("Service Unavailable: Our AI providers are currently experiencing downtime. Please try again later.", true);
+    if (msg.includes('timeout')) {
+         throw new StockGPTError("Analysis Timed Out: The request took too long. Please try again.", true);
     }
-
-    // 6. Safety
-    if (msg.includes('safety') || msg.includes('blocked')) {
-        throw new StockGPTError("Safety Filter Triggered: Please rephrase your query.", false);
-    }
-
-    // 7. Data Format
-    if (msg.includes('json') || msg.includes('parse') || msg.includes('validation')) {
-        throw new StockGPTError("Data Processing Error: Received unexpected format from AI. Retrying usually fixes this.", true);
+    if (msg.includes('network') || msg.includes('fetch') || msg.includes('connection')) {
+         throw new StockGPTError("Network Error: Check your internet connection.", true);
     }
     
-    // Catch-all
-    throw new StockGPTError(error.message || "An unexpected system error occurred.", true);
+    // Fallback
+    throw new StockGPTError("Data Processing Error: Unable to generate a valid analysis. Please try a different query.", true);
   }
 };

@@ -1,3 +1,4 @@
+
 export interface PredictionScenario {
   caseName: 'Bull' | 'Base' | 'Bear';
   priceRange: string;
@@ -15,6 +16,25 @@ export interface SignalData {
   recommendation: 'BUY' | 'SELL' | 'HOLD' | 'STRONG BUY' | 'STRONG SELL';
   confidenceScore: number; // 0-100
   rationale: string;
+}
+
+export interface KeyMetrics {
+  peRatio: string;
+  marketCap: string;
+  epsGrowth: string;
+  profitMargin: string;
+  roe: string;
+  rsi: string; // Technical 14D
+  shortTermTrend: 'Bullish' | 'Bearish' | 'Neutral';
+}
+
+export interface StockRecommendation {
+  symbol: string;
+  name: string;
+  action: 'BUY' | 'SELL' | 'HOLD';
+  targetPrice?: number;
+  rationale: string;
+  metrics?: KeyMetrics; // Added for comparison
 }
 
 export interface NewsArticle {
@@ -40,7 +60,9 @@ export interface StockGPTResponse {
     "12M": PredictionScenario[];
   };
   signal: SignalData;
+  metrics?: KeyMetrics; // Added for comparison
   portfolioAllocation?: { asset: string; percentage: number }[]; // For portfolio optimization
+  recommendations?: StockRecommendation[]; // Peer/Sector recommendations
   news?: NewsArticle[];
   groundingMetadata?: any; // To store source chunks if needed
 }
@@ -58,4 +80,14 @@ export interface User {
   name: string;
   email: string;
   avatar?: string;
+}
+
+export interface PriceAlert {
+  id: string;
+  symbol: string;
+  targetPrice: number;
+  initialPrice: number;
+  condition: 'ABOVE' | 'BELOW';
+  status: 'ACTIVE' | 'TRIGGERED';
+  createdAt: number;
 }
