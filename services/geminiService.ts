@@ -3,27 +3,83 @@ import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { StockGPTResponse } from "../types";
 
 const apiKey = process.env.API_KEY || '';
-const REQUEST_TIMEOUT_MS = 90000; // 90s timeout for complex chains
+const REQUEST_TIMEOUT_MS = 120000; // 120s for deep analysis
 
 export class StockGPTError extends Error {
-  constructor(message: string, public isRetryable: boolean = false) {
+  constructor(
+    message: string, 
+    public isRetryable: boolean = false,
+    public code: string = 'UNKNOWN_ERROR'
+  ) {
     super(message);
     this.name = "StockGPTError";
   }
 }
 
+// --- Error Mapping Utility ---
+const mapGenAIError = (err: any): StockGPTError => {
+    if (err instanceof StockGPTError) return err;
+
+    const msg = (err.message || '').toLowerCase();
+    const status = err.status || err.code;
+
+    // Network / Connectivity
+    if (msg.includes('fetch') || msg.includes('network') || msg.includes('connection') || msg.includes('offline')) {
+        return new StockGPTError("Connection failed. Please check your internet connection.", true, 'NETWORK_ERROR');
+    }
+    
+    // Timeout
+    if (msg.includes('timeout') || msg.includes('aborted')) {
+         return new StockGPTError("Analysis timed out. The market data took too long to retrieve.", true, 'TIMEOUT');
+    }
+
+    // Quota / Rate Limiting (429)
+    if (status === 429 || msg.includes('quota') || msg.includes('limit') || msg.includes('exhausted')) {
+        return new StockGPTError("System traffic is high. Please wait a moment and try again.", true, 'RATE_LIMIT');
+    }
+
+    // Safety Filters
+    if (msg.includes('safety') || msg.includes('blocked') || msg.includes('policy') || msg.includes('harmful')) {
+        return new StockGPTError("Analysis blocked by AI safety filters. Please modify your query.", false, 'SAFETY_BLOCK');
+    }
+
+    // Parsing
+    if (msg.includes('json') || msg.includes('parse') || msg.includes('syntax') || msg.includes('unexpected token')) {
+        return new StockGPTError("Failed to structure market data. Retrying usually fixes this.", true, 'PARSE_ERROR');
+    }
+
+    // Service Unavailable
+    if (status === 503 || status === 500 || msg.includes('overloaded') || msg.includes('unavailable')) {
+        return new StockGPTError("AI Service temporarily unavailable. Please try again.", true, 'SERVICE_ERROR');
+    }
+
+    // Auth
+    if (status === 401 || status === 403 || msg.includes('api key') || msg.includes('unauthorized')) {
+        return new StockGPTError("Authentication failed. Please verify API configuration.", false, 'AUTH_ERROR');
+    }
+
+    // Default
+    return new StockGPTError(err.message || "An unexpected error occurred.", true, 'UNKNOWN');
+};
+
 // Robust Data Repair
 const repairData = (data: any): any => {
     if (!data || typeof data !== 'object') return data;
 
-    // Ensure arrays
+    // Force type to single
+    data.type = 'single';
+
+    // Ensure arrays exist
     if (!Array.isArray(data.sections)) data.sections = [];
     if (!Array.isArray(data.scenarios)) data.scenarios = [];
     
-    // Filter invalid scenarios
-    data.scenarios = data.scenarios.filter((s: any) => s && s.caseName && s.priceRange);
+    // Filter invalid scenarios and ensure numeric targets
+    data.scenarios = data.scenarios.filter((s: any) => s && s.caseName && s.priceRange).map((s: any) => ({
+        ...s,
+        targetPrice: typeof s.targetPrice === 'number' ? s.targetPrice : parseFloat(String(s.priceRange).replace(/[^0-9.]/g, '')) || 0
+    }));
 
-    // Fix Forecasts
+    // Fix Forecasts structure
     if (!data.forecasts || typeof data.forecasts !== 'object') {
         const fallback = data.scenarios.length > 0 ? data.scenarios : [];
         data.forecasts = {
@@ -33,7 +89,7 @@ const repairData = (data: any): any => {
         };
     }
 
-    // Ensure Signal
+    // Ensure Signal exists
     if (!data.signal || typeof data.signal !== 'object') {
         data.signal = { 
             recommendation: 'HOLD', 
@@ -42,22 +98,49 @@ const repairData = (data: any): any => {
         };
     }
 
+    // Ensure Metrics exist
+    if (!data.metrics || typeof data.metrics !== 'object') {
+        data.metrics = {
+            peRatio: "N/A",
+            marketCap: "N/A",
+            epsGrowth: "N/A",
+            profitMargin: "N/A",
+            roe: "N/A",
+            rsi: "50",
+            shortTermTrend: "Neutral"
+        };
+    }
+
+    // Ensure Recommendations (Peers) have metrics
+    if (Array.isArray(data.recommendations)) {
+        data.recommendations = data.recommendations.map((rec: any) => ({
+            ...rec,
+            metrics: rec.metrics || {
+                peRatio: "N/A",
+                marketCap: "N/A",
+                epsGrowth: "N/A",
+                profitMargin: "N/A",
+                roe: "N/A",
+                rsi: "N/A"
+            }
+        }));
+    }
+
     // Ensure critical strings
     if (!data.symbol) data.symbol = "UNKNOWN";
     if (!data.summary) data.summary = "No summary available.";
     if (!data.companyName) data.companyName = data.symbol;
+    if (typeof data.currentPrice !== 'number') data.currentPrice = 0;
 
     return data;
 };
 
-// Validation Helper to prevent UI crashes
+// Validation Helper
 const validateSchema = (data: any): boolean => {
   if (!data || typeof data !== 'object') return false;
   
-  // Required Strings
+  // Single Mode Validation
   if (typeof data.symbol !== 'string' || typeof data.summary !== 'string') return false;
-  
-  // Required Objects/Arrays
   if (!data.signal || typeof data.signal !== 'object') return false;
   
   // We need at least some content
@@ -66,11 +149,11 @@ const validateSchema = (data: any): boolean => {
   return true;
 };
 
-// Timeout Helper
+// Timeout Wrapper
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
     return new Promise((resolve, reject) => {
         const timer = setTimeout(() => {
-            reject(new Error("TIMEOUT"));
+            reject(new Error("TIMEOUT_EXCEEDED"));
         }, ms);
 
         promise
@@ -85,118 +168,107 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
     });
 }
 
-// Exponential Backoff Retry with Smart Filtering
+// Enhanced Retry Logic
 async function retryOperation<T>(operation: () => Promise<T>, retries = 2, delay = 1000): Promise<T> {
   try {
     return await operation();
   } catch (error: any) {
-    // Determine if we should stop immediately (Non-retryable errors)
-    const status = error.status || error.code;
-    const msg = (error.message || '').toLowerCase();
+    const mappedError = mapGenAIError(error);
 
-    // 400: Bad Request, 401: Unauthorized, 403: Forbidden, 404: Not Found
-    if (status === 400 || status === 401 || status === 403 || status === 404) {
-        throw error;
-    }
-    
-    // Safety filters are not retryable
-    if (msg.includes('safety') || msg.includes('recitation')) {
-        throw error;
+    // Don't retry if specifically non-retryable
+    if (!mappedError.isRetryable) {
+        throw mappedError;
     }
 
-    if (retries <= 0) throw error;
-    
-    // Classify Retryable Errors
-    const isNetworkError = 
-        msg.includes('fetch') || 
-        msg.includes('network') || 
-        msg.includes('xhr') || 
-        msg.includes('rpc failed') ||
-        msg.includes('load failed') ||
-        msg.includes('connection');
-    
-    const isServerOverload = 
-        status === 429 || 
-        status === 503 || 
-        msg.includes('overloaded') || 
-        msg.includes('capacity') ||
-        msg.includes('quota'); // Sometimes temporary
-    
-    const isServerErr = status >= 500;
-    const isJsonError = msg.includes('json') || msg.includes('structure') || msg.includes('validation') || msg.includes('syntax') || msg.includes('parsing');
-    const isTimeout = msg === 'timeout';
-
-    if (isNetworkError || isServerOverload || isServerErr || isJsonError || isTimeout) {
-      console.warn(`Attempt failed (${msg}). Retrying in ${delay}ms... (${retries} attempts left)`);
-      await new Promise(resolve => setTimeout(resolve, delay));
-      return retryOperation(operation, retries - 1, delay * 2);
+    if (retries <= 0) {
+        throw mappedError;
     }
     
-    throw error;
+    console.warn(`Operation failed (${mappedError.code}). Retrying in ${delay}ms...`, error.message);
+    
+    await new Promise(resolve => setTimeout(resolve, delay));
+    
+    // Exponential backoff
+    return retryOperation(operation, retries - 1, delay * 2);
   }
 }
 
 export const analyzeStock = async (query: string): Promise<StockGPTResponse> => {
   const cleanQuery = query.trim();
-  if (!cleanQuery) throw new StockGPTError("Query cannot be empty.");
+  if (!cleanQuery) throw new StockGPTError("Query cannot be empty.", false, 'INVALID_INPUT');
 
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
-    throw new StockGPTError("No internet connection detected.", true);
+    throw new StockGPTError("No internet connection detected.", true, 'OFFLINE');
   }
 
   if (!apiKey) {
-    throw new StockGPTError("API Key is missing. Please configure your environment.", false);
+    throw new StockGPTError("API Key is missing. Please configure your environment.", false, 'NO_API_KEY');
   }
 
   const ai = new GoogleGenAI({ apiKey });
 
   const systemPrompt = `
-    You are StockGPT, an advanced financial analysis engine.
+    You are StockGPT, an elite quantitative financial analysis engine.
     
-    TASK: Provide a deep financial analysis for: "${cleanQuery}".
+    TASK: Perform a deep-dive financial analysis for: "${cleanQuery}".
     
-    GUIDELINES:
-    1. MARKET IDENTIFICATION:
-       - Identify the correct listing (NSE/BSE for India, NYSE/NASDAQ for US).
-       - Use local currency (₹ for India, $ for US).
+    CORE OBJECTIVE: ACCURACY > 95%. 
+    You MUST use the 'googleSearch' tool to verify the Latest Price, Market Cap, P/E Ratio, and Recent News. Do not rely solely on internal knowledge.
     
-    2. STRUCTURED ANALYSIS:
-       - Executive Summary (Business, Moat).
-       - Fundamentals (Revenue, Margins, P/E).
-       - Technicals (RSI, MACD, Support/Resistance).
-       - Macro Analysis (Inflation, Rates, Geopolitics).
-       - Risks.
+    PROTOCOL:
+    1.  **Search & Verify**: First, search for the stock's real-time price, today's news, and latest quarterly results.
+    2.  **Identify Market**: Correctly identify the exchange (NSE/BSE/NYSE/NASDAQ) and Currency.
+    3.  **Analyze**: 
+        -   **Overview**: Executive summary of the business and its "Economic Moat".
+        -   **Fundamentals**: Revenue growth, Net Margins, Cash Flow health.
+        -   **Technicals**: RSI (14D), MACD, Moving Averages (20/50/200 DMA).
+        -   **Macro**: Interest rates, Inflation, Sector rotation, Geopolitics.
+    4.  **Forecast**: Generate probabilistic price targets (Bull/Base/Bear) for 1M, 6M, and 12M.
+    5.  **Signal**: Provide a BUY/SELL/HOLD recommendation with a 0-100 confidence score based on data convergence.
 
-    3. PREDICTIONS & SIGNAL:
-       - Short/Medium/Long term price targets (Bull/Base/Bear).
-       - Signal: BUY/SELL/HOLD with confidence score (0-100).
+    CRITICAL OUTPUT RULES:
+    -   Return ONLY valid JSON. No markdown formatting. No preamble.
+    -   Ensure 'currentPrice' is a number (e.g., 150.50), not a string.
+    -   Ensure 'metrics' are accurate and up-to-date.
     
-    4. TOOLS:
-       - Use Google Search for REAL-TIME price, news, and data.
-    
-    CRITICAL OUTPUT FORMAT:
-    - You must return ONLY a valid JSON object.
-    - DO NOT use markdown code blocks.
-    - DO NOT add any text before or after the JSON.
-    - JSON Structure:
+    JSON STRUCTURE:
     {
-      "symbol": "string",
+      "type": "single",
+      "symbol": "string (e.g. AAPL)",
       "companyName": "string",
       "currentPrice": number,
-      "currency": "string",
+      "currency": "string (e.g. $ or ₹)",
       "summary": "string",
-      "sections": [{ "title": "string", "content": "string" }],
-      "scenarios": [{ "caseName": "Bull"|"Base"|"Bear", "priceRange": "string", "probability": "string", "description": "string", "targetPrice": number }],
+      "sections": [
+        { "title": "Fundamentals", "content": "Markdown text..." },
+        { "title": "Technicals", "content": "Markdown text..." },
+        { "title": "Global Market & Macro Analysis", "content": "Detailed markdown covering rates, inflation, geopolitics..." },
+        { "title": "Risks", "content": "Markdown text..." }
+      ],
+      "scenarios": [
+         { "caseName": "Bull", "priceRange": "string", "probability": "string", "description": "string", "targetPrice": number },
+         { "caseName": "Base", "priceRange": "string", "probability": "string", "description": "string", "targetPrice": number },
+         { "caseName": "Bear", "priceRange": "string", "probability": "string", "description": "string", "targetPrice": number }
+      ],
       "forecasts": {
         "1M": [ ...scenarios... ],
         "6M": [ ...scenarios... ],
         "12M": [ ...scenarios... ]
       },
-      "signal": { "recommendation": "string", "confidenceScore": number, "rationale": "string" },
-      "metrics": { "peRatio": "string", "marketCap": "string", "epsGrowth": "string", "profitMargin": "string", "roe": "string", "rsi": "string", "shortTermTrend": "string" },
+      "signal": { "recommendation": "BUY"|"SELL"|"HOLD", "confidenceScore": number, "rationale": "string" },
+      "metrics": { "peRatio": "string", "marketCap": "string", "epsGrowth": "string", "profitMargin": "string", "roe": "string", "rsi": "string", "shortTermTrend": "Bullish"|"Bearish"|"Neutral" },
       "portfolioAllocation": [{ "asset": "string", "percentage": number }],
-      "recommendations": [{ "symbol": "string", "name": "string", "action": "string", "targetPrice": number, "rationale": "string", "metrics": { ... } }],
-      "news": [{ "title": "string", "source": "string", "url": "string", "published": "string", "summary": "string", "sentiment": "string" }]
+      "recommendations": [
+         { 
+           "symbol": "PEER", 
+           "name": "Peer Name", 
+           "action": "string", 
+           "targetPrice": number, 
+           "rationale": "string", 
+           "metrics": { "peRatio": "...", "marketCap": "...", "epsGrowth": "...", "profitMargin": "...", "roe": "...", "rsi": "..." } 
+         }
+      ],
+      "news": [{ "title": "string", "source": "string", "url": "string", "published": "string", "summary": "string", "sentiment": "Positive"|"Negative"|"Neutral" }]
     }
   `;
 
@@ -208,6 +280,7 @@ export const analyzeStock = async (query: string): Promise<StockGPTResponse> => 
         config: {
           systemInstruction: systemPrompt,
           tools: [{ googleSearch: {} }],
+          thinkingConfig: { thinkingBudget: 2048 }, 
         }
       }),
       REQUEST_TIMEOUT_MS
@@ -215,39 +288,42 @@ export const analyzeStock = async (query: string): Promise<StockGPTResponse> => 
 
     const candidate = response.candidates?.[0];
     if (candidate?.finishReason && candidate.finishReason !== 'STOP') {
-        // Handle specific finish reasons as errors
         throw new Error(`FINISH_REASON: ${candidate.finishReason}`);
     }
 
     let text = response.text || "";
     if (!text) throw new Error("Received empty response from AI.");
 
-    // Aggressive JSON Extraction
     try {
-        // 1. Remove markdown wrapping if present
+        // Advanced cleaning
         text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
         
-        // 2. Find outer braces
+        // Find JSON boundaries
         const jsonStart = text.indexOf('{');
         const jsonEnd = text.lastIndexOf('}');
         
         if (jsonStart === -1 || jsonEnd === -1 || jsonEnd <= jsonStart) {
-             throw new Error("No JSON object found in response.");
+             throw new Error("No valid JSON structure found in response.");
         }
         
         const jsonString = text.substring(jsonStart, jsonEnd + 1);
+        let rawData;
         
-        let rawData = JSON.parse(jsonString);
+        try {
+            rawData = JSON.parse(jsonString);
+        } catch (parseError) {
+            // Attempt to fix common issues if parse fails?
+            // For now, rethrow to trigger retry
+            throw new Error(`JSON Parse Failed: ${(parseError as Error).message}`);
+        }
         
-        // 3. Repair and Validate
         rawData = repairData(rawData);
 
         if (!validateSchema(rawData)) {
-            console.error("Schema Invalid:", rawData);
-            throw new Error("Validation failed: Data structure incomplete.");
+            console.error("Schema Validation Failed:", rawData);
+            throw new Error("Data missing critical fields (symbol, signal, sections).");
         }
 
-        // 4. Attach Metadata
         if (candidate.groundingMetadata) {
             rawData.groundingMetadata = candidate.groundingMetadata;
         }
@@ -255,51 +331,16 @@ export const analyzeStock = async (query: string): Promise<StockGPTResponse> => 
         return rawData as StockGPTResponse;
 
     } catch (e: any) {
-        console.error("Parsing/Validation Error:", e.message);
-        throw new Error(`JSON Processing Error: ${e.message}`);
+        // If it's already a StockGPTError, rethrow
+        if (e instanceof StockGPTError) throw e;
+        throw new Error(e.message || "Failed to process AI response.");
     }
   };
 
   try {
     return await retryOperation(performAnalysis);
   } catch (error: any) {
-    console.error("StockGPT Pipeline Error:", error);
-    
-    if (error instanceof StockGPTError) throw error;
-
-    const msg = (error.message || '').toLowerCase();
-    const status = error.status || error.code;
-
-    // Specific Error Mapping
-    if (msg.includes('finish_reason: safety') || msg.includes('safety')) {
-         throw new StockGPTError("Safety Filter Triggered: The query produced protected content. Please rephrase.", false);
-    }
-    if (msg.includes('finish_reason: recitation') || msg.includes('recitation')) {
-         throw new StockGPTError("Content Limit: Response blocked due to recitation/copyright checks.", false);
-    }
-    if (status === 400) {
-         throw new StockGPTError("Invalid Request: The query could not be processed.", false);
-    }
-    if (status === 401 || msg.includes('api key')) {
-         throw new StockGPTError("Authorization Failed: Invalid or missing API Key.", false);
-    }
-    if (status === 403) {
-         throw new StockGPTError("Access Denied: You may not have access to this model or region.", false);
-    }
-    if (status === 404) {
-         throw new StockGPTError("Model Not Found: The requested AI model is unavailable.", false);
-    }
-    if (status === 429 || msg.includes('quota') || msg.includes('limit')) {
-         throw new StockGPTError("High Traffic: Server is busy. Please try again in a moment.", true);
-    }
-    if (msg.includes('timeout')) {
-         throw new StockGPTError("Analysis Timed Out: The request took too long. Please try again.", true);
-    }
-    if (msg.includes('network') || msg.includes('fetch') || msg.includes('connection')) {
-         throw new StockGPTError("Network Error: Check your internet connection.", true);
-    }
-    
-    // Fallback
-    throw new StockGPTError("Data Processing Error: Unable to generate a valid analysis. Please try a different query.", true);
+    // Final catch to ensure a clean error object reaches the UI
+    throw mapGenAIError(error);
   }
 };

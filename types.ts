@@ -26,6 +26,8 @@ export interface KeyMetrics {
   roe: string;
   rsi: string; // Technical 14D
   shortTermTrend: 'Bullish' | 'Bearish' | 'Neutral';
+  dividendYield?: string;
+  debtToEquity?: string;
 }
 
 export interface StockRecommendation {
@@ -46,32 +48,52 @@ export interface NewsArticle {
   sentiment: 'Positive' | 'Negative' | 'Neutral';
 }
 
+export interface ComparisonCandidate {
+  symbol: string;
+  companyName: string;
+  currentPrice: number;
+  currency: string;
+  signal: SignalData;
+  metrics: KeyMetrics;
+  pros: string[];
+  cons: string[];
+  targetPrice12M: number; // Base case target
+}
+
 export interface StockGPTResponse {
-  symbol: string; // "AAPL" or "PORTFOLIO" or "MACRO"
-  companyName: string; // or "Market Analysis"
-  currentPrice?: number; // Optional, estimated
-  currency?: string; // e.g. "$", "₹", "€"
+  type?: 'single' | 'comparison'; // Discriminate response type
+  
+  // Fields for Single Analysis
+  symbol: string; 
+  companyName: string; 
+  currentPrice?: number; 
+  currency?: string; 
   summary: string;
-  sections: AnalysisSection[]; // Introduction, Fundamentals, Technicals, Macro, Risks, Takeaways
-  scenarios: PredictionScenario[]; // Default (usually 12M) for backward compat
+  sections: AnalysisSection[]; 
+  scenarios: PredictionScenario[]; 
   forecasts?: {
     "1M": PredictionScenario[];
     "6M": PredictionScenario[];
     "12M": PredictionScenario[];
   };
   signal: SignalData;
-  metrics?: KeyMetrics; // Added for comparison
-  portfolioAllocation?: { asset: string; percentage: number }[]; // For portfolio optimization
-  recommendations?: StockRecommendation[]; // Peer/Sector recommendations
+  metrics?: KeyMetrics; 
+  portfolioAllocation?: { asset: string; percentage: number }[]; 
+  recommendations?: StockRecommendation[]; 
   news?: NewsArticle[];
-  groundingMetadata?: any; // To store source chunks if needed
+  
+  // Fields for Comparison
+  comparisonCandidates?: ComparisonCandidate[];
+  comparisonVerdict?: string; // markdown summary of the winner
+
+  groundingMetadata?: any; 
 }
 
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  data?: StockGPTResponse; // If assistant, may contain structured data
+  data?: StockGPTResponse; 
   timestamp: number;
 }
 

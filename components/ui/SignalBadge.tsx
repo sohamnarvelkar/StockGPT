@@ -35,11 +35,11 @@ const SignalBadge: React.FC<Props> = ({ signal }) => {
                 >
                     <Info size={18} />
                     {showTooltip && (
-                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-72 p-4 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl shadow-black/50 z-50 text-xs text-slate-300 pointer-events-none">
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-80 p-4 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl shadow-black/50 z-50 text-xs text-slate-300 pointer-events-none">
                              <div className="absolute bottom-[-6px] left-1/2 -translate-x-1/2 w-3 h-3 bg-slate-900 border-r border-b border-slate-700 rotate-45"></div>
                              <p className="font-bold text-white mb-2 border-b border-slate-700 pb-2">Confidence Score Logic</p>
-                             <p className="mb-2 leading-relaxed">
-                                Calculated via weighted multi-factor analysis:
+                             <p className="mb-3 leading-relaxed">
+                                This score represents the AI's certainty in the forecast, derived from a weighted combination of technical indicators, fundamental strength, and market sentiment analysis.
                              </p>
                              <ul className="space-y-1.5">
                                 <li className="flex items-start gap-2">

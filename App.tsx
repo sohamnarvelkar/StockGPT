@@ -9,7 +9,7 @@ import { useAuth } from './context/AuthContext';
 import { useAlerts } from './context/AlertContext';
 import AuthModal from './components/auth/AuthModal';
 import SetAlertModal from './components/modals/SetAlertModal';
-import { Search, TrendingUp, LogIn, LogOut, User, AlertTriangle, RefreshCw, Bell, Trash2 } from 'lucide-react'; 
+import { Search, TrendingUp, LogIn, LogOut, User, AlertTriangle, RefreshCw, Bell, Trash2, WifiOff, ShieldAlert, FileWarning } from 'lucide-react'; 
 
 const IconTrend = () => <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>;
 
@@ -18,8 +18,8 @@ function App() {
   const [inputText, setInputText] = useState('');
   const [analysisData, setAnalysisData] = useState<StockGPTResponse | null>(null);
   
-  // Update error state to store retryability info
-  const [error, setError] = useState<{ message: string; isRetryable: boolean } | null>(null);
+  // Enhanced error state
+  const [error, setError] = useState<{ message: string; isRetryable: boolean; code?: string } | null>(null);
   
   // Auth Integration
   const { user, logout, isLoading } = useAuth();
@@ -57,13 +57,13 @@ function App() {
     setViewState(ViewState.ANALYZING);
     setError(null);
 
-    // Update URL without reloading (try-catch for blob/sandbox environments)
+    // Update URL without reloading
     try {
         const url = new URL(window.location.href);
         url.searchParams.set('q', query);
         window.history.pushState({}, '', url.toString());
     } catch (e) {
-        // Ignore history errors in restricted environments
+        // Ignore history errors
     }
 
     try {
@@ -75,8 +75,9 @@ function App() {
       
       const message = err.message || "Failed to analyze. Please try again.";
       const isRetryable = err.isRetryable !== undefined ? err.isRetryable : true;
+      const code = err.code || 'UNKNOWN';
       
-      setError({ message, isRetryable });
+      setError({ message, isRetryable, code });
       setViewState(ViewState.LANDING); 
     }
   };
@@ -106,7 +107,7 @@ function App() {
     setAnalysisData(null);
     setError(null);
     
-    // Clear URL param (try-catch for blob/sandbox environments)
+    // Clear URL param
     try {
         const url = new URL(window.location.href);
         url.searchParams.delete('q');
@@ -120,6 +121,14 @@ function App() {
     logout();
     setShowProfileMenu(false);
     handleReset();
+  };
+
+  // Helper to render error icon based on code
+  const renderErrorIcon = (code: string = 'UNKNOWN') => {
+      if (code === 'NETWORK_ERROR' || code === 'OFFLINE') return <WifiOff size={24} className="text-rose-400" />;
+      if (code === 'SAFETY_BLOCK') return <ShieldAlert size={24} className="text-rose-400" />;
+      if (code === 'PARSE_ERROR') return <FileWarning size={24} className="text-amber-400" />;
+      return <AlertTriangle size={24} className="text-rose-400" />;
   };
 
   return (
@@ -265,11 +274,11 @@ function App() {
         )}
 
         {viewState === ViewState.RESULT && analysisData && (
-          <AnalysisDisplay 
-            data={analysisData} 
-            onReset={handleReset}
-            onOpenAlertModal={() => setIsAlertModalOpen(true)}
-          />
+            <AnalysisDisplay 
+                data={analysisData} 
+                onReset={handleReset}
+                onOpenAlertModal={() => setIsAlertModalOpen(true)}
+            />
         )}
 
         {viewState === ViewState.LANDING && (
@@ -294,7 +303,7 @@ function App() {
                   type="text"
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
-                  placeholder="Ticker (AAPL, RELIANCE.NS) or Question..."
+                  placeholder="Analyze stocks and enter stock name"
                   className="w-full bg-transparent border-none py-4 px-14 text-lg text-white placeholder-slate-500 focus:ring-0 focus:outline-none"
                 />
                 <button
@@ -315,24 +324,27 @@ function App() {
 
             {error && (
                <div className="mt-10 mx-auto max-w-xl animate-in fade-in slide-in-from-top-4 duration-300">
-                 <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl p-5 flex flex-col items-center gap-3 shadow-lg">
-                    <div className="flex items-start gap-3 w-full justify-center">
-                        <AlertTriangle className="shrink-0 mt-0.5" size={20} />
-                        <div className="text-base font-medium">
+                 <div className={`rounded-xl p-5 flex flex-col items-center gap-3 shadow-lg border ${
+                     error.code === 'NETWORK_ERROR' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' :
+                     error.code === 'SAFETY_BLOCK' ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' :
+                     'bg-rose-500/10 border-rose-500/20 text-rose-400'
+                 }`}>
+                    <div className="flex items-start gap-3 w-full justify-center text-center">
+                        <div className="shrink-0 mt-0.5">{renderErrorIcon(error.code)}</div>
+                        <div className="text-base font-medium leading-tight">
                             {error.message}
                         </div>
                     </div>
                     
-                    {error.isRetryable && (
+                    {error.isRetryable ? (
                         <button 
                             onClick={handleRetry}
-                            className="flex items-center gap-2 px-5 py-2 text-sm font-bold text-rose-300 hover:text-white bg-rose-500/10 hover:bg-rose-500/30 rounded-lg transition-colors border border-rose-500/20 uppercase tracking-wide"
+                            className="mt-2 flex items-center gap-2 px-6 py-2 text-sm font-bold text-white bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors border border-slate-600 uppercase tracking-wide shadow-md"
                         >
                             <RefreshCw size={14} /> Retry Analysis
                         </button>
-                    )}
-                    {!error.isRetryable && (
-                        <p className="text-xs text-rose-300/70 mt-1">Please modify your request and try again.</p>
+                    ) : (
+                         <p className="text-xs opacity-70 mt-1">Please modify your request and try again.</p>
                     )}
                  </div>
                </div>
@@ -343,7 +355,7 @@ function App() {
 
       <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
       
-      {analysisData && (
+      {analysisData && analysisData.type !== 'comparison' && (
         <SetAlertModal 
             isOpen={isAlertModalOpen} 
             onClose={() => setIsAlertModalOpen(false)} 
