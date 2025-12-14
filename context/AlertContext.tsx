@@ -99,7 +99,7 @@ export const AlertProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                      icon: '/favicon.ico' // fallback
                  });
              }
-             return { ...alert, status: 'TRIGGERED' };
+             return { ...alert, status: 'TRIGGERED' as const };
           }
           return alert;
         });

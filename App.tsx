@@ -57,10 +57,14 @@ function App() {
     setViewState(ViewState.ANALYZING);
     setError(null);
 
-    // Update URL without reloading
-    const url = new URL(window.location.href);
-    url.searchParams.set('q', query);
-    window.history.pushState({}, '', url);
+    // Update URL without reloading (try-catch for blob/sandbox environments)
+    try {
+        const url = new URL(window.location.href);
+        url.searchParams.set('q', query);
+        window.history.pushState({}, '', url.toString());
+    } catch (e) {
+        // Ignore history errors in restricted environments
+    }
 
     try {
       const result = await analyzeStock(query);
@@ -102,10 +106,14 @@ function App() {
     setAnalysisData(null);
     setError(null);
     
-    // Clear URL param
-    const url = new URL(window.location.href);
-    url.searchParams.delete('q');
-    window.history.pushState({}, '', url);
+    // Clear URL param (try-catch for blob/sandbox environments)
+    try {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('q');
+        window.history.pushState({}, '', url.toString());
+    } catch (e) {
+        // Ignore history errors
+    }
   };
 
   const handleLogout = () => {
@@ -329,10 +337,6 @@ function App() {
                  </div>
                </div>
             )}
-            
-            <div className="mt-16 text-sm text-slate-600 font-mono">
-              POWERED BY GEMINI 2.5 FLASH • REAL-TIME DATA
-            </div>
           </div>
         )}
       </main>

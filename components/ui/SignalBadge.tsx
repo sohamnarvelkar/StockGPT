@@ -18,7 +18,7 @@ const SignalBadge: React.FC<Props> = ({ signal }) => {
   };
 
   return (
-    <div className="glass-panel p-4 rounded-xl flex items-center justify-between">
+    <div className="glass-panel p-4 rounded-xl flex items-center justify-between relative z-20">
       <div>
         <h3 className="text-slate-400 font-mono text-sm uppercase tracking-wider mb-1.5">AI Recommendation</h3>
         <div className="flex items-center gap-4">
@@ -29,15 +29,32 @@ const SignalBadge: React.FC<Props> = ({ signal }) => {
                 <span className="text-3xl font-bold text-white font-mono leading-none">{signal.confidenceScore}%</span>
                 <span className="text-xs text-slate-500 font-medium self-end mb-1">CONFIDENCE</span>
                 <div 
-                    className="ml-1 text-slate-600 hover:text-cyan-400 cursor-help"
+                    className="ml-1 text-slate-600 hover:text-cyan-400 cursor-help relative"
                     onMouseEnter={() => setShowTooltip(true)}
                     onMouseLeave={() => setShowTooltip(false)}
                 >
                     <Info size={18} />
                     {showTooltip && (
-                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-64 p-3 bg-slate-900 border border-slate-700 rounded-xl shadow-xl z-50 text-xs text-slate-300">
-                             <p className="font-semibold text-white mb-1">Score Logic:</p>
-                             AI weighted probability derived from technicals (RSI/MACD), fundamentals (P/E/Growth), and market sentiment.
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-72 p-4 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl shadow-black/50 z-50 text-xs text-slate-300 pointer-events-none">
+                             <div className="absolute bottom-[-6px] left-1/2 -translate-x-1/2 w-3 h-3 bg-slate-900 border-r border-b border-slate-700 rotate-45"></div>
+                             <p className="font-bold text-white mb-2 border-b border-slate-700 pb-2">Confidence Score Logic</p>
+                             <p className="mb-2 leading-relaxed">
+                                Calculated via weighted multi-factor analysis:
+                             </p>
+                             <ul className="space-y-1.5">
+                                <li className="flex items-start gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 mt-1 shrink-0"></span>
+                                    <span><span className="text-white font-medium">Technicals:</span> RSI, MACD, Volume</span>
+                                </li>
+                                <li className="flex items-start gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1 shrink-0"></span>
+                                    <span><span className="text-white font-medium">Fundamentals:</span> P/E, Growth, Cash Flow</span>
+                                </li>
+                                <li className="flex items-start gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-1 shrink-0"></span>
+                                    <span><span className="text-white font-medium">Sentiment:</span> News, Market Volatility</span>
+                                </li>
+                             </ul>
                         </div>
                     )}
                 </div>
