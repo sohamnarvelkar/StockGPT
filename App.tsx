@@ -8,7 +8,7 @@ import { useAuth } from './context/AuthContext';
 import { useAlerts } from './context/AlertContext';
 import AuthModal from './components/auth/AuthModal';
 import SetAlertModal from './components/modals/SetAlertModal';
-import { Search, TrendingUp, LogIn, LogOut, User, AlertTriangle, RefreshCw, Bell, Trash2, WifiOff, ShieldAlert, FileWarning, Key } from 'lucide-react'; 
+import { Search, TrendingUp, LogIn, LogOut, User, AlertTriangle, RefreshCw, Bell, Trash2, WifiOff, ShieldAlert, FileWarning, Key, CheckCircle2, XCircle } from 'lucide-react'; 
 
 const IconTrend = () => <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>;
 
@@ -29,6 +29,11 @@ function App() {
   const { alerts, removeAlert } = useAlerts();
   const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
   const [showAlertMenu, setShowAlertMenu] = useState(false);
+
+  // System Status Check
+  const hasApiKey = React.useMemo(() => {
+    return process.env.API_KEY && process.env.API_KEY.length > 0;
+  }, []);
 
   // Deep Linking & Auto-Run Logic
   useEffect(() => {
@@ -154,9 +159,19 @@ function App() {
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="hidden md:flex text-sm font-mono text-slate-400 items-center gap-2">
-                <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></span>
-                SYSTEM ONLINE
+            {/* Dynamic System Status */}
+            <div className={`hidden md:flex text-sm font-mono items-center gap-2 px-3 py-1 rounded-full border ${hasApiKey ? 'text-emerald-400 border-emerald-500/20 bg-emerald-500/10' : 'text-rose-400 border-rose-500/20 bg-rose-500/10'}`}>
+                {hasApiKey ? (
+                    <>
+                        <CheckCircle2 size={14} />
+                        <span>SYSTEM ONLINE</span>
+                    </>
+                ) : (
+                    <>
+                        <XCircle size={14} />
+                        <span>KEY MISSING</span>
+                    </>
+                )}
             </div>
             
             {/* Alerts Dropdown */}
@@ -339,11 +354,12 @@ function App() {
                     
                     {error.code === 'NO_API_KEY' ? (
                        <div className="w-full bg-slate-900/50 p-4 rounded-lg mt-3 text-left border border-amber-500/20">
-                           <p className="text-xs font-bold text-amber-400 uppercase tracking-wider mb-2">How to Fix This:</p>
+                           <p className="text-xs font-bold text-amber-400 uppercase tracking-wider mb-2">Deployed Version Fix:</p>
                            <ol className="list-decimal list-inside text-sm text-slate-300 space-y-1.5 font-mono">
-                               <li>Create a file named <span className="text-white font-bold">.env</span> in your project root.</li>
-                               <li>Add this line: <span className="text-cyan-300">API_KEY=your_google_api_key</span></li>
-                               <li>Restart your terminal/server.</li>
+                               <li>Go to your Hosting Dashboard (Vercel/Netlify).</li>
+                               <li>Navigate to <span className="text-white font-bold">Settings &gt; Environment Variables</span>.</li>
+                               <li>Add Key: <span className="text-cyan-300">API_KEY</span> Value: <span className="text-cyan-300">AIzaSy...</span></li>
+                               <li><span className="text-white font-bold">Redeploy</span> your application.</li>
                            </ol>
                        </div>
                     ) : (

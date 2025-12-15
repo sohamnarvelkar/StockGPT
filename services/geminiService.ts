@@ -275,7 +275,7 @@ export const analyzeStock = async (query: string): Promise<StockGPTResponse> => 
   const performAnalysis = async (): Promise<StockGPTResponse> => {
     const response: GenerateContentResponse = await withTimeout(
       ai.models.generateContent({
-        model: 'gemini-2.5-flash-latest',
+        model: 'gemini-2.5-flash',
         contents: query,
         config: {
           systemInstruction: systemPrompt,
