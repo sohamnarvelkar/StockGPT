@@ -1,8 +1,7 @@
-
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { StockGPTResponse } from "../types";
 
-const apiKey = process.env.API_KEY || '';
+// API Key must be obtained from process.env.API_KEY as per Google GenAI guidelines
 const REQUEST_TIMEOUT_MS = 120000; // 120s for deep analysis
 
 export class StockGPTError extends Error {
@@ -201,11 +200,11 @@ export const analyzeStock = async (query: string): Promise<StockGPTResponse> => 
     throw new StockGPTError("No internet connection detected.", true, 'OFFLINE');
   }
 
-  if (!apiKey) {
-    throw new StockGPTError("API Key is missing. Please configure your environment.", false, 'NO_API_KEY');
+  if (!process.env.API_KEY) {
+    throw new StockGPTError("API Key is missing. Please configure your environment variables.", false, 'NO_API_KEY');
   }
 
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   const systemPrompt = `
     You are StockGPT, an elite quantitative financial analysis engine.
@@ -228,7 +227,7 @@ export const analyzeStock = async (query: string): Promise<StockGPTResponse> => 
 
     CRITICAL OUTPUT RULES:
     -   Return ONLY valid JSON. No markdown formatting. No preamble.
-    -   Ensure 'currentPrice' is a number (e.g., 150.50), not a string.
+    -   Ensure 'currentPrice' is a number (e.g. 150.50), not a string.
     -   Ensure 'metrics' are accurate and up-to-date.
     
     JSON STRUCTURE:
