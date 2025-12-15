@@ -2,8 +2,19 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>StockGPT - Financial Intelligence</title>
+    <meta name="description" content="Institutional-grade financial analysis powered by Gemini 2.5. Real-time market data, probabilistic forecasting, and portfolio optimization." />
+    
+    <!-- Open Graph / Social Media -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="StockGPT - AI Financial Analyst" />
+    <meta property="og:description" content="Deep-dive market analysis, technical indicators, and price forecasting using advanced AI." />
+    <meta property="og:image" content="https://images.unsplash.com/photo-1611974765270-ca1258634369?q=80&w=1200&auto=format&fit=crop" />
+    
+    <!-- Favicon (SVG for modern browsers) -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2306b6d4' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='23 6 13.5 15.5 8.5 10.5 1 18'/%3E%3Cpolyline points='17 6 23 6 23 12'/%3E%3C/svg%3E" />
+    
     <!-- Tailwind CSS (CDN for simplicity in this setup) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- HTML2PDF -->
@@ -41,6 +52,23 @@
         backdrop-filter: blur(10px);
         -webkit-backdrop-filter: blur(10px);
         border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+      
+      /* Animations */
+      @keyframes fade-in {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      .animate-fade-in {
+        animation: fade-in 0.5s ease-out forwards;
+      }
+      
+      @keyframes slide-up {
+        from { transform: translateY(20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+      }
+      .animate-fade-in-up {
+        animation: slide-up 0.6s ease-out forwards;
       }
     </style>
   <script type="importmap">
