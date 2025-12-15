@@ -10,7 +10,8 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     define: {
       // This shim allows 'process.env.API_KEY' to work in the browser
-      'process.env.API_KEY': JSON.stringify(env.API_KEY)
+      // Default to empty string if undefined to ensure code runs without ReferenceErrors
+      'process.env.API_KEY': JSON.stringify(env.API_KEY || '')
     }
   };
 });

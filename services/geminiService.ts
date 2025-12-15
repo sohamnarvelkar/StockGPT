@@ -200,8 +200,9 @@ export const analyzeStock = async (query: string): Promise<StockGPTResponse> => 
     throw new StockGPTError("No internet connection detected.", true, 'OFFLINE');
   }
 
-  if (!process.env.API_KEY) {
-    throw new StockGPTError("API Key is missing. Please configure your environment variables.", false, 'NO_API_KEY');
+  // Check for API key (handling both undefined and empty string cases)
+  if (!process.env.API_KEY || process.env.API_KEY.trim() === '') {
+    throw new StockGPTError("API Key is missing.", false, 'NO_API_KEY');
   }
 
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -274,7 +275,7 @@ export const analyzeStock = async (query: string): Promise<StockGPTResponse> => 
   const performAnalysis = async (): Promise<StockGPTResponse> => {
     const response: GenerateContentResponse = await withTimeout(
       ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-2.5-flash-latest',
         contents: query,
         config: {
           systemInstruction: systemPrompt,

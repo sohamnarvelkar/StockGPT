@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { ViewState, APP_NAME } from './constants';
 import { StockGPTResponse } from './types';
@@ -9,7 +8,7 @@ import { useAuth } from './context/AuthContext';
 import { useAlerts } from './context/AlertContext';
 import AuthModal from './components/auth/AuthModal';
 import SetAlertModal from './components/modals/SetAlertModal';
-import { Search, TrendingUp, LogIn, LogOut, User, AlertTriangle, RefreshCw, Bell, Trash2, WifiOff, ShieldAlert, FileWarning } from 'lucide-react'; 
+import { Search, TrendingUp, LogIn, LogOut, User, AlertTriangle, RefreshCw, Bell, Trash2, WifiOff, ShieldAlert, FileWarning, Key } from 'lucide-react'; 
 
 const IconTrend = () => <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>;
 
@@ -125,6 +124,7 @@ function App() {
 
   // Helper to render error icon based on code
   const renderErrorIcon = (code: string = 'UNKNOWN') => {
+      if (code === 'NO_API_KEY') return <Key size={24} className="text-amber-400" />;
       if (code === 'NETWORK_ERROR' || code === 'OFFLINE') return <WifiOff size={24} className="text-rose-400" />;
       if (code === 'SAFETY_BLOCK') return <ShieldAlert size={24} className="text-rose-400" />;
       if (code === 'PARSE_ERROR') return <FileWarning size={24} className="text-amber-400" />;
@@ -325,6 +325,7 @@ function App() {
             {error && (
                <div className="mt-10 mx-auto max-w-xl animate-in fade-in slide-in-from-top-4 duration-300">
                  <div className={`rounded-xl p-5 flex flex-col items-center gap-3 shadow-lg border ${
+                     error.code === 'NO_API_KEY' ? 'bg-amber-900/20 border-amber-500/20 text-amber-100' :
                      error.code === 'NETWORK_ERROR' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' :
                      error.code === 'SAFETY_BLOCK' ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' :
                      'bg-rose-500/10 border-rose-500/20 text-rose-400'
@@ -336,15 +337,26 @@ function App() {
                         </div>
                     </div>
                     
-                    {error.isRetryable ? (
-                        <button 
-                            onClick={handleRetry}
-                            className="mt-2 flex items-center gap-2 px-6 py-2 text-sm font-bold text-white bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors border border-slate-600 uppercase tracking-wide shadow-md"
-                        >
-                            <RefreshCw size={14} /> Retry Analysis
-                        </button>
+                    {error.code === 'NO_API_KEY' ? (
+                       <div className="w-full bg-slate-900/50 p-4 rounded-lg mt-3 text-left border border-amber-500/20">
+                           <p className="text-xs font-bold text-amber-400 uppercase tracking-wider mb-2">How to Fix This:</p>
+                           <ol className="list-decimal list-inside text-sm text-slate-300 space-y-1.5 font-mono">
+                               <li>Create a file named <span className="text-white font-bold">.env</span> in your project root.</li>
+                               <li>Add this line: <span className="text-cyan-300">API_KEY=your_google_api_key</span></li>
+                               <li>Restart your terminal/server.</li>
+                           </ol>
+                       </div>
                     ) : (
-                         <p className="text-xs opacity-70 mt-1">Please modify your request and try again.</p>
+                        error.isRetryable ? (
+                            <button 
+                                onClick={handleRetry}
+                                className="mt-2 flex items-center gap-2 px-6 py-2 text-sm font-bold text-white bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors border border-slate-600 uppercase tracking-wide shadow-md"
+                            >
+                                <RefreshCw size={14} /> Retry Analysis
+                            </button>
+                        ) : (
+                            <p className="text-xs opacity-70 mt-1">Please modify your request and try again.</p>
+                        )
                     )}
                  </div>
                </div>
