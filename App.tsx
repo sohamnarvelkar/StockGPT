@@ -355,7 +355,7 @@ function App() {
 
       <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
       
-      {analysisData && analysisData.type !== 'comparison' && (
+      {analysisData && (
         <SetAlertModal 
             isOpen={isAlertModalOpen} 
             onClose={() => setIsAlertModalOpen(false)} 

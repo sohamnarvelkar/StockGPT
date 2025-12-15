@@ -36,7 +36,7 @@ export interface StockRecommendation {
   action: 'BUY' | 'SELL' | 'HOLD';
   targetPrice?: number;
   rationale: string;
-  metrics?: KeyMetrics; // Added for comparison
+  metrics?: KeyMetrics; // Added for context in Deep Dive
 }
 
 export interface NewsArticle {
@@ -54,16 +54,15 @@ export interface ComparisonCandidate {
   currentPrice: number;
   currency: string;
   signal: SignalData;
-  metrics: KeyMetrics;
   pros: string[];
   cons: string[];
-  targetPrice12M: number; // Base case target
+  targetPrice12M: number;
+  metrics: KeyMetrics;
 }
 
 export interface StockGPTResponse {
-  type?: 'single' | 'comparison'; // Discriminate response type
+  type: 'single'; // Strictly single mode
   
-  // Fields for Single Analysis
   symbol: string; 
   companyName: string; 
   currentPrice?: number; 
@@ -82,10 +81,10 @@ export interface StockGPTResponse {
   recommendations?: StockRecommendation[]; 
   news?: NewsArticle[];
   
-  // Fields for Comparison
+  // Comparison fields
   comparisonCandidates?: ComparisonCandidate[];
-  comparisonVerdict?: string; // markdown summary of the winner
-
+  comparisonVerdict?: string;
+  
   groundingMetadata?: any; 
 }
 
