@@ -55,14 +55,14 @@ const ForecastTrendChart: React.FC<Props> = ({ forecasts, currentPrice, currency
   ];
 
   return (
-    <div className="flex flex-col h-full w-full">
+    <div className="flex flex-col h-full w-full min-w-0">
       <div className="mb-4">
         <h3 className="text-cyan-400 font-mono text-sm">PROJECTED TRAJECTORY</h3>
         <span className="text-xs text-slate-500">Timeline Forecast (Bull vs Base vs Bear)</span>
       </div>
 
-      <div className="w-full h-64 font-sans">
-        <ResponsiveContainer width="100%" height="100%">
+      <div className="w-full h-64 font-sans min-w-0">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
           <LineChart
             data={data}
             margin={{

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User } from '../types';
+import { User, SubscriptionTier } from '../types';
 
 interface AuthContextType {
   user: User | null;
@@ -8,6 +8,7 @@ interface AuthContextType {
   signup: (email: string, password: string, name: string) => Promise<void>;
   googleSignIn: () => Promise<void>;
   logout: () => void;
+  updateSubscription: (tier: SubscriptionTier, paymentId: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -31,8 +32,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);
-    
-    // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 1500));
     
     if (!email.includes('@')) {
@@ -40,17 +39,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         throw new Error("Please enter a valid email address.");
     }
 
-    if (password.length < 6) {
-        setIsLoading(false);
-        throw new Error("Password must be at least 6 characters.");
-    }
-
-    // Mock validation success
     const mockUser: User = {
         id: 'u_' + Math.random().toString(36).substr(2, 9),
         name: email.split('@')[0],
         email: email,
-        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`
+        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
+        tier: 'FREE'
     };
     
     setUser(mockUser);
@@ -62,26 +56,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setIsLoading(true);
     await new Promise(resolve => setTimeout(resolve, 1500));
     
-    if (!email.includes('@')) {
-        setIsLoading(false);
-        throw new Error("Please enter a valid email address.");
-    }
-
-    if (password.length < 6) {
-        setIsLoading(false);
-        throw new Error("Password must be at least 6 characters.");
-    }
-
-    if (!name.trim()) {
-        setIsLoading(false);
-        throw new Error("Name is required.");
-    }
-
     const mockUser: User = {
         id: 'u_' + Math.random().toString(36).substr(2, 9),
         name: name,
         email: email,
-        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}`
+        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}`,
+        tier: 'FREE'
     };
     setUser(mockUser);
     localStorage.setItem('stockgpt_user', JSON.stringify(mockUser));
@@ -92,7 +72,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setIsLoading(true);
     await new Promise(resolve => setTimeout(resolve, 2000));
     
-    // Randomize name for "simulation" effect
     const names = ["Alex Trader", "Jordan Belfort", "Warren B.", "Crypto King"];
     const randomName = names[Math.floor(Math.random() * names.length)];
 
@@ -100,10 +79,25 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         id: 'g_' + Math.random().toString(36).substr(2, 9),
         name: randomName,
         email: `${randomName.toLowerCase().replace(' ', '.')}@gmail.com`,
-        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${randomName}&backgroundColor=c0aede`
+        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${randomName}&backgroundColor=c0aede`,
+        tier: 'FREE'
     };
     setUser(mockUser);
     localStorage.setItem('stockgpt_user', JSON.stringify(mockUser));
+    setIsLoading(false);
+  };
+
+  const updateSubscription = async (tier: SubscriptionTier, paymentId: string) => {
+    setIsLoading(true);
+    // Simulate PayPal API Latency and Webhook verification
+    console.log("Verifying PayPal Transaction:", paymentId, "for plan:", tier);
+    await new Promise(resolve => setTimeout(resolve, 2500));
+    
+    if (user) {
+        const updatedUser = { ...user, tier };
+        setUser(updatedUser);
+        localStorage.setItem('stockgpt_user', JSON.stringify(updatedUser));
+    }
     setIsLoading(false);
   };
 
@@ -113,7 +107,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, signup, googleSignIn, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, login, signup, googleSignIn, logout, updateSubscription }}>
       {children}
     </AuthContext.Provider>
   );

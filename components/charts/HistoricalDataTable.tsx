@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState } from 'react';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
@@ -83,7 +82,7 @@ const HistoricalDataTable: React.FC<Props> = ({ currentPrice, currency }) => {
   const renderChart = () => {
     if (viewMode === 'volume') {
         return (
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <BarChart data={filteredData} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
                     <XAxis dataKey="date" stroke="#94a3b8" tick={{fontSize: 13}} tickFormatter={(val) => val.substring(5)} minTickGap={30} />
@@ -95,7 +94,7 @@ const HistoricalDataTable: React.FC<Props> = ({ currentPrice, currency }) => {
         );
     }
     return (
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
             <ComposedChart data={filteredData} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
                 <defs>
                     <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
@@ -117,7 +116,7 @@ const HistoricalDataTable: React.FC<Props> = ({ currentPrice, currency }) => {
   };
 
   return (
-    <div className="flex flex-col h-full w-full">
+    <div className="flex flex-col h-full w-full min-w-0">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-3">
         <div className="flex items-center gap-2">
             <TrendingUp size={18} className="text-cyan-400" />
@@ -131,7 +130,7 @@ const HistoricalDataTable: React.FC<Props> = ({ currentPrice, currency }) => {
         </div>
       </div>
 
-      <div className="flex-grow w-full min-h-[500px] bg-slate-900/40 rounded-lg border border-slate-700/50 p-2 relative">
+      <div className="flex-grow w-full min-h-[500px] bg-slate-900/40 rounded-lg border border-slate-700/50 p-2 relative min-w-0">
          {viewMode !== 'table' && (
              <div className="absolute top-3 right-3 z-10 flex gap-0.5 bg-slate-800/80 backdrop-blur-sm p-0.5 rounded border border-slate-700">
                 {(['1M', '3M', '6M', '1Y'] as TimeRange[]).map((range) => (
@@ -167,7 +166,7 @@ const HistoricalDataTable: React.FC<Props> = ({ currentPrice, currency }) => {
                 </div>
              </div>
          ) : (
-             <div className="h-[500px] w-full pt-4">
+             <div className="h-[500px] w-full pt-4 min-w-0">
                  {renderChart()}
              </div>
          )}

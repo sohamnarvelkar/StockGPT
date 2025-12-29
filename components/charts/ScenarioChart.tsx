@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import {
   BarChart,
@@ -43,7 +42,7 @@ const ScenarioChart: React.FC<Props> = ({ scenarios, forecasts, currentPrice, cu
   ];
 
   return (
-    <div className="flex flex-col h-full w-full">
+    <div className="flex flex-col h-full w-full min-w-0">
       <div className="flex justify-between items-center mb-3">
         <div>
             <h3 className="text-cyan-400 font-mono text-xs font-bold">TARGET DISTRIBUTION</h3>
@@ -60,8 +59,8 @@ const ScenarioChart: React.FC<Props> = ({ scenarios, forecasts, currentPrice, cu
         )}
       </div>
 
-      <div className="w-full h-[400px] font-sans mb-4">
-        <ResponsiveContainer width="100%" height="100%">
+      <div className="w-full h-[400px] font-sans mb-4 min-w-0">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
             <BarChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
             <XAxis dataKey="name" stroke="#94a3b8" tick={{ fill: '#94a3b8', fontSize: 13 }} />

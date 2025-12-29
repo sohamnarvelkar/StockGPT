@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import {
   LineChart, Line, BarChart, Bar, AreaChart, Area, ComposedChart, ScatterChart, Scatter, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
@@ -54,7 +53,7 @@ const FinancialProjections: React.FC<Props> = ({ forecasts, currentPrice, curren
     switch (chartType) {
       case 'levels':
         return (
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
             <BarChart data={timeSeriesData} margin={compactMargins}>
               <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
               <XAxis dataKey="name" stroke="#94a3b8" tick={{fontSize: 13}} tickLine={false} axisLine={false} dy={10} />
@@ -68,7 +67,7 @@ const FinancialProjections: React.FC<Props> = ({ forecasts, currentPrice, curren
         );
       case 'cone':
         return (
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
             <AreaChart data={timeSeriesData} margin={compactMargins}>
               <defs>
                 <linearGradient id="colorBull" x1="0" y1="0" x2="0" y2="1">
@@ -92,7 +91,7 @@ const FinancialProjections: React.FC<Props> = ({ forecasts, currentPrice, curren
         );
       case 'composed':
         return (
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
             <ComposedChart data={timeSeriesData} margin={compactMargins}>
               <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
               <XAxis dataKey="name" stroke="#94a3b8" tick={{fontSize: 13}} tickLine={false} axisLine={false} dy={10} />
@@ -106,7 +105,7 @@ const FinancialProjections: React.FC<Props> = ({ forecasts, currentPrice, curren
         );
       case 'risk':
         return (
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
             <ScatterChart margin={compactMargins}>
               <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
               <XAxis type="number" dataKey="prob" name="Probability" unit="%" stroke="#94a3b8" domain={[0, 100]} tick={{fontSize: 13}} tickLine={false} axisLine={false} dy={10} />
@@ -120,7 +119,7 @@ const FinancialProjections: React.FC<Props> = ({ forecasts, currentPrice, curren
         );
       case 'radar':
         return (
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
             <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
               <PolarGrid stroke="#334155" />
               <PolarAngleAxis dataKey="subject" tick={{ fill: '#94a3b8', fontSize: 13 }} />
@@ -135,7 +134,7 @@ const FinancialProjections: React.FC<Props> = ({ forecasts, currentPrice, curren
       case 'trend':
       default:
         return (
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
             <LineChart data={timeSeriesData} margin={compactMargins}>
               <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
               <XAxis dataKey="name" stroke="#94a3b8" tick={{fontSize: 13}} tickLine={false} axisLine={false} dy={10} />
@@ -160,7 +159,7 @@ const FinancialProjections: React.FC<Props> = ({ forecasts, currentPrice, curren
   ];
 
   return (
-    <div className="flex flex-col h-full w-full">
+    <div className="flex flex-col h-full w-full min-w-0">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 gap-2">
         <div>
           <h3 className="text-cyan-400 font-mono text-xs font-bold uppercase tracking-wider leading-none">Forecast Models</h3>
@@ -173,7 +172,7 @@ const FinancialProjections: React.FC<Props> = ({ forecasts, currentPrice, curren
           ))}
         </div>
       </div>
-      <div className="w-full h-[500px] font-sans bg-slate-900/30 rounded-lg border border-slate-800/50 p-4 relative">
+      <div className="w-full h-[500px] font-sans bg-slate-900/30 rounded-lg border border-slate-800/50 p-4 relative min-w-0">
         {renderChart()}
       </div>
     </div>

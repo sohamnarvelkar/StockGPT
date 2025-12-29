@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { StockGPTResponse, ComparisonCandidate } from '../types';
 import { Trophy, TrendingUp, TrendingDown, Minus, Check, X, AlertCircle, BarChart3, Scale } from 'lucide-react';
@@ -46,7 +45,7 @@ const ComparisonDisplay: React.FC<Props> = ({ data, onReset }) => {
   }));
 
   return (
-    <div className="w-full max-w-full mx-auto space-y-4 pb-8 animate-fade-in">
+    <div className="w-full max-w-full mx-auto space-y-4 pb-8 animate-fade-in min-w-0">
       
       {/* Header */}
       <div className="glass-panel rounded-2xl p-6 flex flex-col md:flex-row justify-between items-center gap-4">
@@ -186,13 +185,13 @@ const ComparisonDisplay: React.FC<Props> = ({ data, onReset }) => {
       </div>
 
       {/* Performance Potential Chart */}
-      <div className="glass-panel p-5 rounded-xl">
+      <div className="glass-panel p-5 rounded-xl min-w-0">
           <div className="flex items-center gap-2 mb-4">
               <TrendingUp className="text-cyan-400" size={20} />
               <h3 className="text-lg font-bold text-white">Relative Potential (12M)</h3>
           </div>
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="h-64 w-full min-w-0">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
                     <XAxis dataKey="name" stroke="#94a3b8" tick={{ fill: '#94a3b8' }} />

@@ -19,13 +19,13 @@ const SentimentGauge: React.FC<Props> = ({ score, recommendation }) => {
   ];
 
   return (
-    <div className="flex flex-col items-center justify-center h-full w-full relative">
+    <div className="flex flex-col items-center justify-center h-full w-full relative min-w-0">
       <div className="absolute top-2 left-0">
          <h3 className="text-cyan-400 font-mono text-sm">AI CONFIDENCE</h3>
       </div>
       
-      <div className="w-full h-32 mt-4 font-sans relative">
-        <ResponsiveContainer width="100%" height="100%">
+      <div className="w-full h-32 mt-4 font-sans relative min-w-0">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
           <PieChart>
             <Pie
               data={data}

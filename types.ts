@@ -1,3 +1,4 @@
+export type SubscriptionTier = 'FREE' | 'STARTER' | 'PRO' | 'LIFETIME';
 
 export interface PredictionScenario {
   caseName: 'Bull' | 'Base' | 'Bear';
@@ -101,6 +102,7 @@ export interface User {
   name: string;
   email: string;
   avatar?: string;
+  tier: SubscriptionTier;
 }
 
 export interface PriceAlert {

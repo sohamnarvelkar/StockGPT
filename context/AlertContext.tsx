@@ -1,6 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { PriceAlert } from '../types';
+import { PriceAlert, User } from '../types';
+import { useAuth } from './AuthContext';
 
 interface AlertContextType {
   alerts: PriceAlert[];
@@ -15,8 +16,8 @@ const AlertContext = createContext<AlertContextType | undefined>(undefined);
 export const AlertProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [alerts, setAlerts] = useState<PriceAlert[]>([]);
   const [permission, setPermission] = useState<NotificationPermission>('default');
+  const { user } = useAuth();
 
-  // Load from local storage
   useEffect(() => {
     const stored = localStorage.getItem('stockgpt_alerts');
     if (stored) {
@@ -32,12 +33,10 @@ export const AlertProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
   }, []);
 
-  // Save to local storage
   useEffect(() => {
     localStorage.setItem('stockgpt_alerts', JSON.stringify(alerts));
   }, [alerts]);
 
-  // Request Notification Permission
   const requestPermission = async () => {
     if (!('Notification' in window)) return;
     const result = await Notification.requestPermission();
@@ -45,6 +44,15 @@ export const AlertProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   };
 
   const addAlert = (symbol: string, targetPrice: number, currentPrice: number) => {
+    if (!user) return;
+
+    // Enforce limits strictly based on plan
+    const alertLimit = user.tier === 'STARTER' ? 5 : (user.tier === 'PRO' || user.tier === 'LIFETIME') ? 50 : 0;
+    
+    if (alerts.length >= alertLimit) {
+      throw new Error(`Your ${user.tier} plan is limited to ${alertLimit} active alerts. Upgrade to create more.`);
+    }
+
     const condition = targetPrice > currentPrice ? 'ABOVE' : 'BELOW';
     const newAlert: PriceAlert = {
       id: Date.now().toString(),
@@ -57,7 +65,6 @@ export const AlertProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     };
     setAlerts(prev => [newAlert, ...prev]);
     
-    // Immediate feedback if permission granted
     if (permission === 'granted') {
        new Notification(`Alert Set: ${symbol}`, {
          body: `We'll notify you when ${symbol} goes ${condition === 'ABOVE' ? 'above' : 'below'} ${targetPrice}.`
@@ -69,45 +76,34 @@ export const AlertProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setAlerts(prev => prev.filter(a => a.id !== id));
   };
 
-  // --- SIMULATED MONITORING LOOP ---
-  // Since we don't have a real-time websocket, we will simulate price movement
-  // for demonstration purposes to show the notification triggering.
   useEffect(() => {
     const interval = setInterval(() => {
       setAlerts(currentAlerts => {
         let hasChanges = false;
         const updatedAlerts = currentAlerts.map(alert => {
           if (alert.status === 'TRIGGERED') return alert;
-
-          // Simulate random price fluctuation (Random Walk)
-          // Fluctuate between -1% and +1.5% of initial price per tick to eventually hit targets close by
           const volatility = 0.015; 
           const randomMove = (Math.random() * volatility * 2) - volatility;
           const simulatedCurrentPrice = alert.initialPrice * (1 + randomMove);
 
-          // Check Condition
           let triggered = false;
           if (alert.condition === 'ABOVE' && simulatedCurrentPrice >= alert.targetPrice) triggered = true;
           if (alert.condition === 'BELOW' && simulatedCurrentPrice <= alert.targetPrice) triggered = true;
 
           if (triggered) {
              hasChanges = true;
-             // Fire Notification
              if (Notification.permission === 'granted') {
                  new Notification(`Price Alert: ${alert.symbol}`, {
                      body: `Target Reached! ${alert.symbol} has crossed ${alert.targetPrice}`,
-                     icon: '/favicon.ico' // fallback
                  });
              }
              return { ...alert, status: 'TRIGGERED' as const };
           }
           return alert;
         });
-
         return hasChanges ? updatedAlerts : currentAlerts;
       });
-    }, 5000); // Check every 5 seconds
-
+    }, 5000);
     return () => clearInterval(interval);
   }, []);
 
