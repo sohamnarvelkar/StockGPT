@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { PriceAlert, User } from '../types';
 import { useAuth } from './AuthContext';
@@ -44,13 +43,17 @@ export const AlertProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   };
 
   const addAlert = (symbol: string, targetPrice: number, currentPrice: number) => {
-    if (!user) return;
-
-    // Enforce limits strictly based on plan
-    const alertLimit = user.tier === 'STARTER' ? 5 : (user.tier === 'PRO' || user.tier === 'LIFETIME') ? 50 : 0;
+    // Limits are higher for guests now to allow uninterrupted use.
+    // Logged in users get their specific tier limits.
+    const alertLimit = user 
+        ? (user.tier === 'STARTER' ? 5 : (user.tier === 'PRO' || user.tier === 'LIFETIME') ? 50 : 2)
+        : 10; // Generous limit for guests
     
     if (alerts.length >= alertLimit) {
-      throw new Error(`Your ${user.tier} plan is limited to ${alertLimit} active alerts. Upgrade to create more.`);
+      const msg = user 
+        ? `Your ${user.tier} plan is limited to ${alertLimit} active alerts.` 
+        : "Guest accounts are limited to 10 active alerts. Please sign in for higher limits.";
+      throw new Error(msg);
     }
 
     const condition = targetPrice > currentPrice ? 'ABOVE' : 'BELOW';
@@ -82,6 +85,7 @@ export const AlertProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         let hasChanges = false;
         const updatedAlerts = currentAlerts.map(alert => {
           if (alert.status === 'TRIGGERED') return alert;
+          // Simulated movement for demonstration purposes in local environment
           const volatility = 0.015; 
           const randomMove = (Math.random() * volatility * 2) - volatility;
           const simulatedCurrentPrice = alert.initialPrice * (1 + randomMove);

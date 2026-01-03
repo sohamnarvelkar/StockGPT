@@ -18,7 +18,6 @@ function App() {
   const [analysisData, setAnalysisData] = useState<StockGPTResponse | null>(null);
   const [error, setError] = useState<{ message: string; isRetryable: boolean; code?: string } | null>(null);
   
-  // Real Auth and Alert Contexts
   const { user, logout } = useAuth();
   const { alerts, removeAlert } = useAlerts();
   
@@ -28,12 +27,9 @@ function App() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   const performAnalysis = async (query: string) => {
-    // Auth Gate: Passive trigger
-    if (!user) {
-      setIsAuthModalOpen(true);
-      return;
-    }
-
+    // REDIRECTED LOGIC REMOVED: No mandatory auth gate. 
+    // Guest users can now use the engine freely.
+    
     setViewState(ViewState.ANALYZING);
     setError(null);
 
@@ -76,7 +72,6 @@ function App() {
 
   return (
     <div className="min-h-screen bg-[#020617] text-slate-100 overflow-x-hidden selection:bg-cyan-500/30">
-      {/* Background Ambience */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-900/20 rounded-full blur-[120px]"></div>
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-cyan-900/10 rounded-full blur-[120px]"></div>
@@ -92,30 +87,26 @@ function App() {
           </div>
 
           <div className="flex items-center gap-5">
-            {/* Alerts Menu (Only if logged in) */}
-            {user && (
-              <div className="relative">
-                  <button onClick={() => setShowAlertMenu(!showAlertMenu)} className="p-2 text-slate-400 hover:text-white transition-colors relative">
-                    <Bell size={22} />
-                    {alerts.length > 0 && <span className="absolute top-2 right-2 w-2 h-2 bg-cyan-500 rounded-full"></span>}
-                  </button>
-                  {showAlertMenu && (
-                      <div className="absolute right-0 mt-4 w-80 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl py-2 z-50 overflow-hidden">
-                          <div className="px-5 py-4 border-b border-slate-800 flex justify-between items-center bg-slate-800/30 font-bold text-[10px] text-white uppercase tracking-widest">Global Monitors</div>
-                          <div className="max-h-80 overflow-y-auto">
-                            {alerts.length === 0 ? <div className="px-5 py-8 text-center text-sm text-slate-500">No active alerts.</div> : alerts.map(alert => (
-                                <div key={alert.id} className="px-5 py-4 hover:bg-slate-800/40 border-b border-slate-800/50 last:border-0 flex justify-between items-center">
-                                    <div><div className="font-bold text-white">{alert.symbol}</div><div className="text-xs text-slate-400 font-mono">{alert.targetPrice}</div></div>
-                                    <button onClick={() => removeAlert(alert.id)} className="p-2 text-slate-600 hover:text-rose-400"><Trash2 size={16} /></button>
-                                </div>
-                            ))}
-                          </div>
-                      </div>
-                  )}
-              </div>
-            )}
+            <div className="relative">
+                <button onClick={() => setShowAlertMenu(!showAlertMenu)} className="p-2 text-slate-400 hover:text-white transition-colors relative">
+                  <Bell size={22} />
+                  {alerts.length > 0 && <span className="absolute top-2 right-2 w-2 h-2 bg-cyan-500 rounded-full"></span>}
+                </button>
+                {showAlertMenu && (
+                    <div className="absolute right-0 mt-4 w-80 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl py-2 z-50 overflow-hidden">
+                        <div className="px-5 py-4 border-b border-slate-800 flex justify-between items-center bg-slate-800/30 font-bold text-[10px] text-white uppercase tracking-widest">Global Monitors</div>
+                        <div className="max-h-80 overflow-y-auto">
+                          {alerts.length === 0 ? <div className="px-5 py-8 text-center text-sm text-slate-500">No active alerts.</div> : alerts.map(alert => (
+                              <div key={alert.id} className="px-5 py-4 hover:bg-slate-800/40 border-b border-slate-800/50 last:border-0 flex justify-between items-center">
+                                  <div><div className="font-bold text-white">{alert.symbol}</div><div className="text-xs text-slate-400 font-mono">{alert.targetPrice}</div></div>
+                                  <button onClick={() => removeAlert(alert.id)} className="p-2 text-slate-600 hover:text-rose-400"><Trash2 size={16} /></button>
+                              </div>
+                          ))}
+                        </div>
+                    </div>
+                )}
+            </div>
 
-            {/* Auth Component */}
             {user ? (
                 <div className="relative">
                     <button onClick={() => setShowProfileMenu(!showProfileMenu)} className="flex items-center gap-3 bg-slate-800/50 hover:bg-slate-800 py-1.5 px-3 rounded-full border border-slate-700 transition-all">
@@ -136,7 +127,7 @@ function App() {
                                 <p className="text-[10px] text-slate-400 leading-tight">Verified Institutional Terminal</p>
                               </div>
                               <button 
-                                onClick={() => { logout(); handleReset(); setShowProfileMenu(false); }} 
+                                onClick={() => { logout(); setShowProfileMenu(false); }} 
                                 className="w-full text-left px-5 py-3.5 text-sm text-rose-400 hover:bg-rose-500/10 flex items-center gap-3 transition-colors"
                               >
                                 <LogOut size={16} /> Sign Out
@@ -175,12 +166,12 @@ function App() {
           <div className="max-w-7xl mx-auto px-6 pt-24 pb-20">
             <div className="max-w-4xl mx-auto text-center animate-fade-in-up">
               <div className="inline-block px-4 py-1.5 bg-cyan-500/10 border border-cyan-500/20 rounded-full text-cyan-400 text-xs font-black uppercase tracking-[0.3em] mb-8">
-                Institutional Analysis Engine {user ? 'Active' : 'Locked'}
+                Institutional Analysis Engine Active
               </div>
               <h1 className="text-6xl md:text-8xl font-black text-white mb-6 tracking-tighter leading-tight">
                 Global <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">Intelligence.</span>
               </h1>
-              <p className="text-xl text-slate-400 mb-12 max-w-2xl mx-auto leading-relaxed">Predict price trajectories and decode complex market trends with institutional accuracy. Sign in to run deep-dive analysis.</p>
+              <p className="text-xl text-slate-400 mb-12 max-w-2xl mx-auto leading-relaxed">Predict price trajectories and decode complex market trends with institutional accuracy. Instant access, no redirects.</p>
               
               <div className="bg-slate-800/40 p-2 rounded-2xl border border-slate-700 shadow-2xl backdrop-blur-xl group focus-within:border-cyan-500/50 transition-all">
                 <form onSubmit={handleSubmit} className="relative flex items-center">
@@ -216,10 +207,9 @@ function App() {
       </main>
       
       <footer className="relative border-t border-slate-800 py-10 text-center text-[10px] text-slate-600 font-bold uppercase tracking-[0.3em] opacity-50">
-          © {new Date().getFullYear()} {APP_NAME} • Professional Grade Analysis
+          © {new Date().getFullYear()} {APP_NAME} • Institutional Grade • Unlocked Engine
       </footer>
 
-      {/* Modals */}
       <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
       {analysisData && <SetAlertModal isOpen={isAlertModalOpen} onClose={() => setIsAlertModalOpen(false)} symbol={analysisData.symbol} currentPrice={analysisData.currentPrice || 0} />}
     </div>
