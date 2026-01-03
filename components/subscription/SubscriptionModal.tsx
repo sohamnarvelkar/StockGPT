@@ -75,11 +75,8 @@ const SubscriptionModal: React.FC<Props> = ({ isOpen, onClose, isMandatory = fal
     if (!selectedTier) return;
     
     setIsAuthorizing(true);
-    // Simulate PayPal external login window / authorization
     await new Promise(resolve => setTimeout(resolve, 2000));
-    
     await updateSubscription(selectedTier, 'PAYID-' + Math.random().toString(36).substr(2, 12).toUpperCase());
-    // Close modal after success
     onClose();
   };
 
@@ -88,21 +85,20 @@ const SubscriptionModal: React.FC<Props> = ({ isOpen, onClose, isMandatory = fal
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
       <div 
-        className="absolute inset-0 bg-slate-950/95 backdrop-blur-xl" 
+        className="absolute inset-0 bg-slate-950/98 backdrop-blur-2xl" 
         onClick={() => !isMandatory && onClose()} 
       />
       
-      <div className="relative w-full max-w-5xl max-h-[95vh] overflow-y-auto bg-slate-900 border border-slate-700 rounded-3xl shadow-[0_0_50px_rgba(0,0,0,0.5)] p-6 sm:p-10 animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-5xl max-h-[95vh] overflow-y-auto bg-slate-900 border border-slate-700 rounded-[2.5rem] shadow-[0_0_100px_rgba(0,0,0,0.8)] p-8 sm:p-12 animate-in fade-in zoom-in-95 duration-300">
         
         {!isMandatory ? (
-          <button onClick={onClose} className="absolute top-6 right-6 text-slate-500 hover:text-white transition-colors">
-            <X size={24} />
+          <button onClick={onClose} className="absolute top-8 right-8 text-slate-500 hover:text-white transition-colors">
+            <X size={28} />
           </button>
         ) : (
           <button 
             onClick={() => { logout(); onClose(); }} 
-            className="absolute top-6 right-6 text-slate-500 hover:text-rose-400 flex items-center gap-2 text-xs font-bold uppercase tracking-widest transition-colors"
-            title="Sign Out"
+            className="absolute top-8 right-8 text-slate-500 hover:text-rose-400 flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] transition-colors"
           >
             <LogOut size={16} /> Sign Out
           </button>
@@ -110,46 +106,46 @@ const SubscriptionModal: React.FC<Props> = ({ isOpen, onClose, isMandatory = fal
 
         {step === 'PLANS' ? (
           <>
-            <div className="text-center mb-12">
-              <div className="flex justify-center mb-4">
-                  <div className="px-3 py-1 bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-[10px] font-bold uppercase tracking-[0.2em] rounded-full">
-                      Membership Options
+            <div className="text-center mb-16">
+              <div className="flex justify-center mb-6">
+                  <div className="px-5 py-2 bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-black uppercase tracking-[0.3em] rounded-full">
+                      Institutional Enrollment
                   </div>
               </div>
-              <h2 className="text-4xl font-bold text-white mb-4">Unlock Institutional Access</h2>
-              <p className="text-slate-400 text-lg max-w-2xl mx-auto">
+              <h2 className="text-5xl font-black text-white mb-6 tracking-tighter leading-none">Choose Your Plan</h2>
+              <p className="text-slate-400 text-lg max-w-2xl mx-auto font-medium">
                 {isMandatory 
-                  ? "Select a plan to complete your enrollment and access the StockGPT analysis suite." 
-                  : "Upgrade your account to access deep-dive metrics and institutional signals."
+                  ? "Membership is mandatory to access the analysis engine. Select a tier to complete your setup." 
+                  : "Upgrade to unlock institutional-grade deep analysis and priority forecasting."
                 }
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {plans.map((plan) => (
                 <div 
                   key={plan.id} 
-                  className={`relative flex flex-col p-8 rounded-2xl glass-panel border ${plan.popular ? 'border-cyan-500/50 ring-1 ring-cyan-500/20 bg-cyan-500/5' : plan.borderColor} transition-all hover:translate-y-[-4px]`}
+                  className={`relative flex flex-col p-8 rounded-3xl border-2 ${plan.popular ? 'border-cyan-500 bg-cyan-500/5 shadow-[0_20px_50px_rgba(6,182,212,0.1)]' : 'border-slate-800 bg-slate-800/20'} transition-all hover:translate-y-[-8px]`}
                 >
                   {plan.popular && (
-                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-cyan-600 text-white text-[10px] font-bold rounded-full uppercase tracking-widest flex items-center gap-1.5 shadow-lg shadow-cyan-900/40">
-                      <Sparkles size={12} /> Pro Recommended
+                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-6 py-2 bg-cyan-500 text-white text-[10px] font-black rounded-full uppercase tracking-[0.2em] shadow-xl">
+                      Professional Choice
                     </div>
                   )}
                   
-                  <div className="mb-6">
-                    <plan.icon className={`${plan.color} mb-4`} size={32} />
-                    <h3 className="text-xl font-bold text-white mb-2">{plan.name}</h3>
+                  <div className="mb-8">
+                    <plan.icon className={`${plan.color} mb-6`} size={40} />
+                    <h3 className="text-2xl font-black text-white mb-2">{plan.name}</h3>
                     <div className="flex items-baseline gap-1">
-                      <span className="text-4xl font-bold text-white">{plan.price}</span>
-                      <span className="text-slate-500 font-medium">{plan.period}</span>
+                      <span className="text-5xl font-black text-white tracking-tighter">{plan.price}</span>
+                      <span className="text-slate-500 font-bold uppercase text-xs tracking-widest">{plan.period}</span>
                     </div>
                   </div>
 
-                  <ul className="space-y-4 mb-10 flex-grow">
+                  <ul className="space-y-5 mb-12 flex-grow">
                     {plan.features.map((feature, i) => (
-                      <li key={i} className="flex items-start gap-3 text-sm text-slate-300">
-                        <Check size={18} className="text-emerald-500 shrink-0 mt-0.5" />
+                      <li key={i} className="flex items-start gap-3 text-sm text-slate-300 font-medium">
+                        <div className="shrink-0 mt-1"><Check size={18} className="text-emerald-500" /></div>
                         {feature}
                       </li>
                     ))}
@@ -158,84 +154,84 @@ const SubscriptionModal: React.FC<Props> = ({ isOpen, onClose, isMandatory = fal
                   <button 
                     onClick={() => handleSelectPlan(plan.id)}
                     disabled={user?.tier === plan.id}
-                    className={`w-full py-4 rounded-xl font-bold transition-all ${
+                    className={`w-full py-5 rounded-2xl font-black transition-all text-sm uppercase tracking-[0.2em] ${
                       user?.tier === plan.id 
                         ? 'bg-slate-800 text-slate-500 cursor-not-allowed' 
                         : plan.popular 
-                          ? 'bg-cyan-600 hover:bg-cyan-500 text-white shadow-lg shadow-cyan-900/40' 
-                          : 'bg-slate-800 hover:bg-slate-700 text-white border border-slate-700'
+                          ? 'bg-cyan-500 hover:bg-cyan-400 text-white shadow-xl shadow-cyan-500/20' 
+                          : 'bg-white hover:bg-slate-100 text-slate-950'
                     }`}
                   >
-                    {user?.tier === plan.id ? 'Current Plan' : 'Select ' + plan.name}
+                    {user?.tier === plan.id ? 'Current Tier' : 'Enroll Now'}
                   </button>
                 </div>
               ))}
             </div>
             
-            <div className="mt-12 text-center">
-                <p className="text-slate-500 text-xs flex items-center justify-center gap-2">
-                    <Lock size={12} /> Secure 256-bit encrypted checkout via PayPal
+            <div className="mt-16 text-center">
+                <p className="text-slate-600 text-xs font-black uppercase tracking-[0.3em] flex items-center justify-center gap-3">
+                    <Lock size={14} /> Encrypted Checkout via PayPal
                 </p>
             </div>
           </>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center py-6 max-w-4xl mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center py-8 max-w-5xl mx-auto">
             {/* Summary Side */}
             <div>
                 <button 
                     onClick={() => setStep('PLANS')} 
-                    className="flex items-center gap-2 text-slate-400 hover:text-white mb-8 text-xs font-bold uppercase tracking-widest transition-colors"
+                    className="flex items-center gap-2 text-slate-500 hover:text-white mb-10 text-xs font-black uppercase tracking-widest transition-colors"
                 >
-                    <RefreshCw size={14} className="rotate-180" /> Change Plan
+                    <RefreshCw size={16} className="rotate-180" /> Change Selection
                 </button>
-                <div className="mb-8">
-                    <span className="text-[#0070ba] text-xs font-bold uppercase tracking-widest mb-2 block">Checkout with PayPal</span>
-                    <h2 className="text-4xl font-bold text-white mb-4">Finalize your upgrade</h2>
-                    <p className="text-slate-400 leading-relaxed">Secure, encrypted, and trusted by millions. Access StockGPT {selectedPlanData?.name} instantly upon completion.</p>
+                <div className="mb-10">
+                    <span className="text-[#0070ba] text-xs font-black uppercase tracking-[0.3em] mb-3 block">PayPal Gateway</span>
+                    <h2 className="text-5xl font-black text-white mb-6 tracking-tighter">Final Step.</h2>
+                    <p className="text-slate-400 leading-relaxed text-lg font-medium">You are one step away from institutional-grade market data. Your {selectedPlanData?.name} membership will be activated instantly.</p>
                 </div>
 
-                <div className="space-y-4 bg-slate-800/30 p-6 rounded-2xl border border-slate-700">
+                <div className="space-y-5 bg-slate-800/40 p-8 rounded-3xl border border-slate-700">
                     <div className="flex justify-between items-center text-sm">
-                        <span className="text-slate-400">{selectedPlanData?.name} Membership</span>
-                        <span className="text-white font-bold">{selectedPlanData?.price}</span>
+                        <span className="text-slate-400 font-bold uppercase tracking-widest">{selectedPlanData?.name} Access</span>
+                        <span className="text-white font-black">{selectedPlanData?.price}</span>
                     </div>
                     <div className="flex justify-between items-center text-sm">
-                        <span className="text-slate-400">Tax / Processing</span>
-                        <span className="text-slate-500">$0.00</span>
+                        <span className="text-slate-400 font-bold uppercase tracking-widest">Platform Fees</span>
+                        <span className="text-slate-500 font-black">$0.00</span>
                     </div>
-                    <div className="pt-4 border-t border-slate-700 flex justify-between items-center">
-                        <span className="text-white font-bold text-lg">Total Amount</span>
-                        <span className="text-2xl font-bold text-[#0070ba]">{selectedPlanData?.price}</span>
+                    <div className="pt-6 border-t border-slate-700 flex justify-between items-center">
+                        <span className="text-white font-black text-xl tracking-tight">Total Amount</span>
+                        <span className="text-3xl font-black text-[#0070ba]">{selectedPlanData?.price}</span>
                     </div>
                 </div>
 
-                <div className="mt-8 flex items-center gap-6 text-[10px] text-slate-500 font-bold uppercase tracking-[0.1em]">
-                    <div className="flex items-center gap-1.5"><ShieldCheck size={14} className="text-emerald-500"/> Buyer Protection</div>
-                    <div className="flex items-center gap-1.5"><Lock size={14} /> SSL Secured</div>
+                <div className="mt-10 flex flex-wrap gap-8 text-[10px] text-slate-600 font-black uppercase tracking-[0.2em]">
+                    <div className="flex items-center gap-2"><ShieldCheck size={16} className="text-emerald-500"/> Buyer Protection</div>
+                    <div className="flex items-center gap-2"><Lock size={16} /> Secure SSL</div>
                 </div>
             </div>
 
-            {/* PayPal Button Side */}
-            <div className="bg-white p-8 rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.4)] animate-in slide-in-from-right-8 duration-300">
-                <div className="text-center mb-8">
-                    <div className="flex justify-center mb-4">
+            {/* PayPal UI */}
+            <div className="bg-white p-10 rounded-[2.5rem] shadow-[0_40px_100px_rgba(0,0,0,0.5)] animate-in slide-in-from-right-12 duration-500">
+                <div className="text-center mb-10">
+                    <div className="flex justify-center mb-6">
                         <PayPalLogo />
                     </div>
-                    <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">Safe • Simple • Instant</p>
+                    <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.4em]">Safe • Fast • Encrypted</p>
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-5">
                     <button 
                         onClick={handlePayPalCheckout}
                         disabled={isLoading || isAuthorizing}
-                        className="w-full bg-[#ffc439] hover:bg-[#f2ba36] text-[#2c2e2f] py-4 rounded-full font-bold text-lg transition-all shadow-md flex items-center justify-center gap-3 active:scale-[0.98] disabled:opacity-70"
+                        className="w-full bg-[#ffc439] hover:bg-[#f2ba36] text-[#2c2e2f] py-5 rounded-full font-black text-lg transition-all shadow-xl flex items-center justify-center gap-3 active:scale-[0.98] disabled:opacity-70"
                     >
                         {isAuthorizing ? (
                             <RefreshCw size={24} className="animate-spin text-[#253b80]" />
                         ) : (
-                            <div className="flex items-center gap-1">
-                                <span className="italic font-extrabold text-[#253b80]">Pay</span>
-                                <span className="italic font-extrabold text-[#179bd7]">Pal</span>
+                            <div className="flex items-center gap-1 scale-110">
+                                <span className="italic font-black text-[#253b80]">Pay</span>
+                                <span className="italic font-black text-[#179bd7]">Pal</span>
                             </div>
                         )}
                     </button>
@@ -243,29 +239,29 @@ const SubscriptionModal: React.FC<Props> = ({ isOpen, onClose, isMandatory = fal
                     <button 
                         onClick={handlePayPalCheckout}
                         disabled={isLoading || isAuthorizing}
-                        className="w-full bg-[#2c2e2f] hover:bg-[#1a1b1c] text-white py-4 rounded-full font-bold text-lg transition-all shadow-md flex items-center justify-center gap-3 active:scale-[0.98] disabled:opacity-70"
+                        className="w-full bg-[#2c2e2f] hover:bg-[#1a1b1c] text-white py-5 rounded-full font-black text-lg transition-all shadow-xl flex items-center justify-center gap-4 active:scale-[0.98] disabled:opacity-70"
                     >
-                        <CreditCard size={20} className="mr-1" /> Debit or Credit Card
+                        <CreditCard size={24} /> Debit or Credit Card
                     </button>
 
-                    <div className="mt-8 pt-6 border-t border-slate-100">
-                        <div className="flex items-center justify-between text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-4">
-                            <span>Trusted Global Networks</span>
-                            <div className="flex gap-2">
-                                <img src="https://upload.wikimedia.org/wikipedia/commons/5/5e/Visa_Inc._logo.svg" className="h-2 opacity-30 grayscale" alt="Visa" />
-                                <img src="https://upload.wikimedia.org/wikipedia/commons/2/2a/Mastercard-logo.svg" className="h-3 opacity-30 grayscale" alt="Mastercard" />
+                    <div className="mt-12 pt-8 border-t border-slate-100">
+                        <div className="flex items-center justify-between text-[9px] text-slate-400 font-black uppercase tracking-[0.2em] mb-6">
+                            <span>Global Card Support</span>
+                            <div className="flex gap-3">
+                                <img src="https://upload.wikimedia.org/wikipedia/commons/5/5e/Visa_Inc._logo.svg" className="h-2.5 opacity-40 grayscale" alt="Visa" />
+                                <img src="https://upload.wikimedia.org/wikipedia/commons/2/2a/Mastercard-logo.svg" className="h-4 opacity-40 grayscale" alt="Mastercard" />
                             </div>
                         </div>
-                        <p className="text-[10px] text-slate-400 leading-relaxed text-center italic opacity-80">
-                            StockGPT uses industry-standard 256-bit SSL encryption. We never store your payment details.
+                        <p className="text-[10px] text-slate-400 leading-relaxed text-center font-bold italic">
+                            By completing this transaction, you gain immediate access to the StockGPT engine. No recurring fees for Lifetime tier.
                         </p>
                     </div>
                 </div>
 
                 {isAuthorizing && (
-                    <div className="mt-6 p-4 bg-blue-50 border border-blue-100 rounded-xl flex items-center gap-3 animate-pulse">
-                        <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
-                        <span className="text-[10px] font-bold text-blue-700 uppercase tracking-widest">Awaiting PayPal Authorization...</span>
+                    <div className="mt-8 p-5 bg-blue-50 border border-blue-100 rounded-2xl flex items-center gap-4 animate-pulse">
+                        <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce"></div>
+                        <span className="text-[10px] font-black text-blue-800 uppercase tracking-[0.1em]">Authorizing PayPal Checkout...</span>
                     </div>
                 )}
             </div>

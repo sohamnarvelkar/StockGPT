@@ -9,7 +9,7 @@ import { useAlerts } from './context/AlertContext';
 import AuthModal from './components/auth/AuthModal';
 import SetAlertModal from './components/modals/SetAlertModal';
 import SubscriptionModal from './components/subscription/SubscriptionModal';
-import { Search, TrendingUp, LogIn, LogOut, User, AlertTriangle, RefreshCw, Bell, Trash2, WifiOff, ShieldAlert, FileWarning, Key, CheckCircle2, XCircle, Crown, Sparkles, CreditCard, Lock, Zap, Shield } from 'lucide-react'; 
+import { Search, TrendingUp, LogIn, LogOut, User, AlertTriangle, RefreshCw, Bell, Trash2, WifiOff, ShieldAlert, FileWarning, Key, CheckCircle2, XCircle, Crown, Sparkles, CreditCard, Lock, Zap, Shield, ChevronRight } from 'lucide-react'; 
 
 const IconTrend = () => <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>;
 
@@ -32,99 +32,45 @@ function App() {
     return process.env.API_KEY && process.env.API_KEY.length > 0;
   }, []);
 
-  // Strict Subscription Check
+  // Strict Membership Check
   const isSubscribed = user && user.tier !== 'FREE';
 
-  // Automatically open subscription modal if logged in but not paid
   useEffect(() => {
     if (user && user.tier === 'FREE') {
         setIsSubscriptionModalOpen(true);
     }
   }, [user]);
 
-  useEffect(() => {
-    if (isLoading) return;
-    const params = new URLSearchParams(window.location.search);
-    const query = params.get('q');
-    if (query && viewState === ViewState.LANDING && !analysisData) {
-        setInputText(query);
-        if (user) {
-            if (isSubscribed) {
-              performAnalysis(query);
-            } else {
-              setIsSubscriptionModalOpen(true);
-            }
-        } else {
-            setIsAuthModalOpen(true);
-        }
-    }
-  }, [user, isLoading, isSubscribed]);
-
   const performAnalysis = async (query: string) => {
+    if (!isSubscribed) return;
     setViewState(ViewState.ANALYZING);
     setError(null);
-    try {
-        const url = new URL(window.location.href);
-        url.searchParams.set('q', query);
-        window.history.pushState({}, '', url.toString());
-    } catch (e) {}
 
     try {
       const result = await analyzeStock(query);
       setAnalysisData(result);
       setViewState(ViewState.RESULT);
     } catch (err: any) {
-      console.error(err);
-      setError({ message: err.message || "Failed to analyze. Please try again.", isRetryable: err.isRetryable !== undefined ? err.isRetryable : true, code: err.code || 'UNKNOWN' });
+      setError({ message: err.message || "Failed to analyze.", isRetryable: true, code: err.code || 'UNKNOWN' });
       setViewState(ViewState.LANDING); 
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim()) return;
-    
-    // Auth Check
-    if (!user) {
-        setIsAuthModalOpen(true);
-        return;
-    }
-
-    // Subscription Check
-    if (user.tier === 'FREE') {
-        setIsSubscriptionModalOpen(true);
-        return;
-    }
-
+    if (!isSubscribed || !inputText.trim()) return;
     await performAnalysis(inputText);
   };
-
-  const handleRetry = () => inputText && performAnalysis(inputText);
 
   const handleReset = () => {
     setViewState(ViewState.LANDING);
     setInputText('');
     setAnalysisData(null);
     setError(null);
-    try {
-        const url = new URL(window.location.href);
-        url.searchParams.delete('q');
-        window.history.pushState({}, '', url.toString());
-    } catch (e) {}
-  };
-
-  const handleLogout = () => {
-    logout();
-    setShowProfileMenu(false);
-    setIsSubscriptionModalOpen(false);
-    handleReset();
   };
 
   const renderErrorIcon = (code: string = 'UNKNOWN') => {
       if (code === 'NO_API_KEY') return <Key size={24} className="text-amber-400" />;
-      if (code === 'NETWORK_ERROR' || code === 'OFFLINE') return <WifiOff size={24} className="text-rose-400" />;
-      if (code === 'SAFETY_BLOCK') return <ShieldAlert size={24} className="text-rose-400" />;
-      if (code === 'PARSE_ERROR') return <FileWarning size={24} className="text-amber-400" />;
       return <AlertTriangle size={24} className="text-rose-400" />;
   };
 
@@ -138,205 +84,159 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 overflow-x-hidden selection:bg-cyan-500/30 font-medium">
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] bg-cyan-900/20 rounded-full blur-[128px]"></div>
-        <div className="absolute bottom-[-20%] right-[-10%] w-[600px] h-[600px] bg-indigo-900/20 rounded-full blur-[128px]"></div>
+    <div className="min-h-screen bg-[#020617] text-slate-100 overflow-x-hidden selection:bg-cyan-500/30">
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-900/20 rounded-full blur-[120px]"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-cyan-900/10 rounded-full blur-[120px]"></div>
       </div>
 
-      <nav className="relative w-full border-b border-slate-800 bg-slate-900/50 backdrop-blur-sm z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+      <nav className="relative w-full border-b border-slate-800 bg-slate-900/40 backdrop-blur-md z-[60]">
+        <div className="max-w-7xl mx-auto px-6 h-18 flex items-center justify-between">
           <div className="flex items-center gap-2 cursor-pointer" onClick={handleReset}>
-            <div className="w-9 h-9 bg-gradient-to-tr from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center">
+            <div className="w-10 h-10 bg-gradient-to-tr from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-cyan-500/20">
               <IconTrend />
             </div>
-            <span className="font-bold text-2xl tracking-tight">{APP_NAME}</span>
+            <span className="font-bold text-2xl tracking-tighter text-white">{APP_NAME}</span>
           </div>
 
-          <div className="flex items-center gap-4">
-            <div className={`hidden lg:flex text-sm font-mono items-center gap-2 px-3 py-1 rounded-full border ${hasApiKey ? 'text-emerald-400 border-emerald-500/20 bg-emerald-500/10' : 'text-rose-400 border-rose-500/20 bg-rose-500/10'}`}>
-                {hasApiKey ? <><CheckCircle2 size={14} /><span>SYSTEM ONLINE</span></> : <><XCircle size={14} /><span>KEY MISSING</span></>}
-            </div>
-            
+          <div className="flex items-center gap-5">
             {isSubscribed && (
               <div className="relative">
-                  <button onClick={() => setShowAlertMenu(!showAlertMenu)} className="relative p-2 text-slate-400 hover:text-white transition-colors" title="Price Alerts">
+                  <button onClick={() => setShowAlertMenu(!showAlertMenu)} className="p-2 text-slate-400 hover:text-white transition-colors">
                     <Bell size={22} />
-                    {alerts.length > 0 && <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-cyan-500 rounded-full"></span>}
+                    {alerts.length > 0 && <span className="absolute top-2 right-2 w-2 h-2 bg-cyan-500 rounded-full"></span>}
                   </button>
                   {showAlertMenu && (
-                      <>
-                      <div className="fixed inset-0 z-40" onClick={() => setShowAlertMenu(false)} />
-                      <div className="absolute right-0 mt-2 w-80 bg-slate-900 border border-slate-700 rounded-xl shadow-xl py-2 z-50">
-                          <div className="px-4 py-3 border-b border-slate-800 flex justify-between items-center"><h3 className="text-base font-semibold text-white">Active Alerts</h3><span className="text-sm text-slate-500">{alerts.length} monitoring</span></div>
-                          <div className="max-h-72 overflow-y-auto">
-                            {alerts.length === 0 ? <div className="px-4 py-6 text-center text-sm text-slate-500">No active alerts.</div> : alerts.map(alert => (
-                                <div key={alert.id} className="px-4 py-3 hover:bg-slate-800/50 border-b border-slate-800/50 last:border-0 flex justify-between items-center group">
-                                    <div><div className="flex items-center gap-2"><span className="font-bold text-base text-white">{alert.symbol}</span>{alert.status === 'TRIGGERED' && <span className="px-2 py-0.5 bg-rose-500/20 text-rose-400 text-xs rounded uppercase font-bold">Hit</span>}</div><div className="text-sm text-slate-400">Target: <span className="text-cyan-400 font-mono text-base">{alert.targetPrice}</span> ({alert.condition})</div></div>
-                                    <button onClick={() => removeAlert(alert.id)} className="p-2 text-slate-600 hover:text-rose-400 hover:bg-rose-500/10 rounded transition-colors"><Trash2 size={16} /></button>
+                      <div className="absolute right-0 mt-4 w-80 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl py-2 z-50 overflow-hidden">
+                          <div className="px-5 py-4 border-b border-slate-800 flex justify-between items-center bg-slate-800/30"><h3 className="text-sm font-bold text-white uppercase tracking-wider">Market Alerts</h3></div>
+                          <div className="max-h-80 overflow-y-auto">
+                            {alerts.length === 0 ? <div className="px-5 py-8 text-center text-sm text-slate-500">No active alerts.</div> : alerts.map(alert => (
+                                <div key={alert.id} className="px-5 py-4 hover:bg-slate-800/40 border-b border-slate-800/50 last:border-0 flex justify-between items-center group">
+                                    <div><div className="flex items-center gap-2 font-bold text-white">{alert.symbol} {alert.status === 'TRIGGERED' && <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-1 rounded">HIT</span>}</div><div className="text-xs text-slate-400 font-mono">Target: {alert.targetPrice}</div></div>
+                                    <button onClick={() => removeAlert(alert.id)} className="p-2 text-slate-600 hover:text-rose-400 transition-colors"><Trash2 size={16} /></button>
                                 </div>
                             ))}
                           </div>
                       </div>
-                      </>
                   )}
               </div>
             )}
 
             {user ? (
-                <div className="relative flex items-center gap-3">
-                    {user.tier === 'FREE' && (
-                        <button 
-                            onClick={() => setIsSubscriptionModalOpen(true)}
-                            className="hidden sm:flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white text-xs font-bold rounded-full transition-all shadow-lg shadow-amber-900/20 uppercase tracking-widest"
-                        >
-                            <Crown size={14} /> Upgrade
-                        </button>
-                    )}
-                    <button onClick={() => setShowProfileMenu(!showProfileMenu)} className="flex items-center gap-3 hover:bg-slate-800 py-1.5 px-3 rounded-full transition-colors border border-transparent hover:border-slate-700">
-                        <div className="text-right hidden sm:block leading-tight">
-                            <div className="text-base font-medium text-slate-200">{user.name}</div>
+                <div className="relative">
+                    <button onClick={() => setShowProfileMenu(!showProfileMenu)} className="flex items-center gap-3 bg-slate-800/50 hover:bg-slate-800 py-1.5 px-3 rounded-full border border-slate-700 transition-all">
+                        <div className="text-right hidden sm:block">
+                            <div className="text-sm font-bold text-white leading-none mb-1">{user.name}</div>
                             {getTierBadge(user.tier)}
                         </div>
-                        {user.avatar ? <img src={user.avatar} alt={user.name} className="w-9 h-9 rounded-full border border-slate-600" /> : <div className="w-9 h-9 bg-slate-700 rounded-full flex items-center justify-center"><User size={18} /></div>}
+                        <img src={user.avatar} className="w-8 h-8 rounded-full border border-slate-600" />
                     </button>
                     {showProfileMenu && (
-                        <div className="absolute right-0 top-full mt-2 w-64 bg-slate-900 border border-slate-700 rounded-xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-2">
-                             <div className="px-4 py-3 border-b border-slate-800 flex flex-col gap-1">
-                                <span className="text-xs text-slate-500 font-bold uppercase tracking-wider">Current Plan</span>
+                        <div className="absolute right-0 top-full mt-3 w-64 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl py-2 z-50">
+                             <div className="px-5 py-4 border-b border-slate-800">
+                                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1 block">Member Status</span>
                                 <div className="flex items-center justify-between">
                                     <span className="text-white font-bold">{user.tier}</span>
-                                    {user.tier !== 'LIFETIME' && (
-                                        <button onClick={() => { setIsSubscriptionModalOpen(true); setShowProfileMenu(false); }} className="text-cyan-400 text-xs hover:underline">Change</button>
-                                    )}
+                                    <button onClick={() => { setIsSubscriptionModalOpen(true); setShowProfileMenu(false); }} className="text-cyan-400 text-xs font-bold hover:underline">Manage</button>
                                 </div>
                              </div>
-                             {isSubscribed && (
-                               <button onClick={() => { setIsSubscriptionModalOpen(true); setShowProfileMenu(false); }} className="w-full text-left px-5 py-3 text-sm text-slate-300 hover:bg-slate-800 flex items-center gap-2">
-                                  <CreditCard size={18} /> Billing Details
-                               </button>
-                             )}
-                             <button onClick={handleLogout} className="w-full text-left px-5 py-3 text-sm text-rose-400 hover:bg-slate-800 flex items-center gap-2 border-t border-slate-800">
-                                <LogOut size={18} /> Sign Out
+                             <button onClick={() => { logout(); handleReset(); }} className="w-full text-left px-5 py-3 text-sm text-rose-400 hover:bg-slate-800 flex items-center gap-3 border-t border-slate-800 mt-2">
+                                <LogOut size={16} /> Sign Out
                              </button>
                         </div>
                     )}
-                    {showProfileMenu && <div className="fixed inset-0 z-40" onClick={() => setShowProfileMenu(false)} />}
                 </div>
             ) : (
-                <button onClick={() => setIsAuthModalOpen(true)} className="flex items-center gap-2 px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-sm font-medium transition-colors border border-slate-700"><LogIn size={18} />Sign In</button>
+                <button onClick={() => setIsAuthModalOpen(true)} className="px-6 py-2.5 bg-white text-slate-950 rounded-xl text-sm font-bold hover:bg-slate-100 transition-all shadow-xl shadow-white/5">Sign In</button>
             )}
           </div>
         </div>
       </nav>
 
-      <main className="relative z-10 px-3 py-3">
-        {viewState === ViewState.ANALYZING && <div className="min-h-[50vh] flex flex-col items-center justify-center"><LoadingSpinner /><p className="mt-6 text-slate-400 text-base max-w-md text-center">Running quantitative models and market simulation...</p></div>}
-        {viewState === ViewState.RESULT && analysisData && <AnalysisDisplay data={analysisData} onReset={handleReset} onOpenAlertModal={() => setIsAlertModalOpen(true)} />}
+      <main className="relative z-10">
+        {viewState === ViewState.ANALYZING && (
+          <div className="min-h-[80vh] flex flex-col items-center justify-center">
+            <LoadingSpinner />
+            <p className="mt-8 text-slate-400 text-sm font-mono tracking-widest uppercase animate-pulse">Running Monte Carlo Simulations...</p>
+          </div>
+        )}
+        
+        {viewState === ViewState.RESULT && analysisData && (
+          <div className="max-w-7xl mx-auto px-6 py-8">
+            <AnalysisDisplay data={analysisData} onReset={handleReset} onOpenAlertModal={() => setIsAlertModalOpen(true)} />
+          </div>
+        )}
+
         {viewState === ViewState.LANDING && (
-          <div className="max-w-4xl mx-auto pt-20 text-center animate-fade-in-up">
-            <div className="mb-10 space-y-4">
-              <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-white mb-4">
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">Global Market</span>
-                <br />Intelligence.
-              </h1>
-              <p className="text-xl text-slate-400 max-w-2xl mx-auto leading-relaxed">
-                {user && user.tier === 'FREE' 
-                  ? "Membership Required. Choose a plan to unlock the StockGPT analysis suite."
-                  : "StockGPT combines quantitative modeling and macro analysis to provide institutional-grade insights."
-                }
-              </p>
-            </div>
-
-            {/* Paywall Gate for FREE users */}
-            {user && user.tier === 'FREE' ? (
-              <div className="mt-12 p-10 glass-panel border border-cyan-500/30 bg-gradient-to-b from-cyan-900/10 to-transparent rounded-3xl max-w-2xl mx-auto shadow-2xl relative overflow-hidden">
-                  <div className="absolute top-0 right-0 p-10 opacity-5 pointer-events-none transform translate-x-1/4 -translate-y-1/4">
-                      <Lock size={200} className="text-cyan-400" />
-                  </div>
-                  <div className="relative z-10">
-                      <div className="w-16 h-16 bg-cyan-500/20 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-cyan-500/30">
-                          <Crown size={32} className="text-cyan-400" />
-                      </div>
-                      <h2 className="text-2xl font-bold text-white mb-4 uppercase tracking-widest">Institutional Access Locked</h2>
-                      <p className="text-slate-400 mb-8 text-lg">Your account requires an active subscription to access the global quantitative analysis engine and real-time forecasts.</p>
-                      
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8 text-left">
-                          <div className="flex items-center gap-3 p-3 bg-slate-800/50 rounded-xl border border-slate-700/50">
-                              <Zap className="text-blue-400" size={20}/>
-                              <span className="text-sm font-medium text-slate-200">Real-time AI Analysis</span>
-                          </div>
-                          <div className="flex items-center gap-3 p-3 bg-slate-800/50 rounded-xl border border-slate-700/50">
-                              <Shield className="text-cyan-400" size={20}/>
-                              <span className="text-sm font-medium text-slate-200">Probability Forecasts</span>
-                          </div>
-                          <div className="flex items-center gap-3 p-3 bg-slate-800/50 rounded-xl border border-slate-700/50">
-                              <Bell className="text-amber-400" size={20}/>
-                              <span className="text-sm font-medium text-slate-200">Institutional Alerts</span>
-                          </div>
-                          <div className="flex items-center gap-3 p-3 bg-slate-800/50 rounded-xl border border-slate-700/50">
-                              <Sparkles className="text-indigo-400" size={20}/>
-                              <span className="text-sm font-medium text-slate-200">Macro Geopolitical Risk</span>
-                          </div>
-                      </div>
-
-                      <button 
-                        onClick={() => setIsSubscriptionModalOpen(true)} 
-                        className="w-full py-4 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 rounded-xl font-bold text-lg text-white shadow-xl shadow-cyan-900/30 transition-all active:scale-[0.98]"
-                      >
-                        Select a Plan to Continue
-                      </button>
-                      
-                      <button onClick={handleLogout} className="mt-6 text-slate-500 hover:text-rose-400 text-sm font-bold uppercase tracking-widest flex items-center justify-center gap-2 mx-auto">
-                          <LogOut size={14} /> Log Out
-                      </button>
-                  </div>
-              </div>
-            ) : (
-              <>
-                <div className="bg-slate-800/50 p-1.5 rounded-2xl border border-slate-700 shadow-2xl backdrop-blur-xl max-w-2xl mx-auto mt-10">
+          <div className="max-w-7xl mx-auto px-6 pt-24 pb-20">
+            {isSubscribed ? (
+              /* THE DASHBOARD (Only for Subscribed Users) */
+              <div className="max-w-4xl mx-auto text-center animate-fade-in-up">
+                <h1 className="text-6xl font-black text-white mb-6 tracking-tighter">
+                  Institutional <span className="text-cyan-400">Intelligence.</span>
+                </h1>
+                <p className="text-lg text-slate-400 mb-12 max-w-2xl mx-auto">Analyze any ticker with institutional-grade quantitative models and real-time market sentiment.</p>
+                <div className="bg-slate-800/40 p-2 rounded-2xl border border-slate-700 shadow-2xl backdrop-blur-xl group focus-within:border-cyan-500/50 transition-all">
                   <form onSubmit={handleSubmit} className="relative flex items-center">
-                    <div className="absolute left-5 text-slate-500">
-                      <Search size={24} />
-                    </div>
+                    <Search className="absolute left-6 text-slate-500 group-focus-within:text-cyan-400 transition-colors" size={24} />
                     <input 
                       type="text" 
                       value={inputText} 
                       onChange={(e) => setInputText(e.target.value)} 
-                      placeholder="Enter stock symbol (e.g. TSLA, RELIANCE)" 
-                      className="w-full bg-transparent border-none py-4 px-14 text-lg text-white placeholder-slate-500 focus:ring-0 focus:outline-none"
+                      placeholder="Enter ticker (e.g. NVDA, MSFT, RELIANCE)" 
+                      className="w-full bg-transparent border-none py-5 px-16 text-xl text-white placeholder-slate-600 focus:ring-0 focus:outline-none font-bold"
                     />
-                    <button 
-                      type="submit" 
-                      disabled={!inputText.trim()} 
-                      className="absolute right-2 px-6 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white text-base font-semibold rounded-xl transition-all shadow-lg shadow-cyan-900/40"
-                    >
-                      Analyze
-                    </button>
+                    <button type="submit" disabled={!inputText.trim()} className="absolute right-2 px-8 py-3.5 bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-cyan-500/20 uppercase tracking-widest disabled:opacity-50">Analyze</button>
                   </form>
                 </div>
+              </div>
+            ) : user ? (
+              /* THE MEMBERSHIP GATE (Logged in, FREE tier) */
+              <div className="max-w-3xl mx-auto text-center animate-fade-in-up">
+                <div className="w-20 h-20 bg-cyan-500/10 rounded-3xl flex items-center justify-center mx-auto mb-8 border border-cyan-500/30">
+                  <Lock size={40} className="text-cyan-400" />
+                </div>
+                <h2 className="text-5xl font-black text-white mb-6 tracking-tighter">Access Required</h2>
+                <p className="text-xl text-slate-400 mb-12 leading-relaxed">Your account is currently on the <span className="text-white font-bold">Free Tier</span>. Membership is required to unlock the StockGPT global analysis suite and real-time forecasting engine.</p>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-12 text-left">
+                  {['Real-time Quantitative Analysis', '12M Probabilistic Forecasts', 'Institutional News Sentiment', 'Historical Data Matrix'].map((feat, i) => (
+                    <div key={i} className="flex items-center gap-3 p-5 bg-slate-900/50 rounded-2xl border border-slate-800">
+                      <div className="w-2 h-2 rounded-full bg-cyan-500"></div>
+                      <span className="text-sm font-bold text-slate-200">{feat}</span>
+                    </div>
+                  ))}
+                </div>
 
-                {!user && (
-                   <div className="mt-12 p-8 glass-panel border border-slate-700 rounded-2xl max-w-lg mx-auto">
-                      <h3 className="text-white font-bold text-lg mb-2">Institutional-Grade Intelligence</h3>
-                      <p className="text-slate-400 text-sm mb-6">Create an account and choose a professional plan to access real-time AI forecasts and quantitative technical reports.</p>
-                      <button onClick={() => setIsAuthModalOpen(true)} className="w-full py-3 bg-white text-slate-900 rounded-xl font-bold hover:bg-slate-100 transition-colors shadow-lg">Get Started</button>
-                   </div>
-                )}
-              </>
+                <button 
+                  onClick={() => setIsSubscriptionModalOpen(true)}
+                  className="w-full py-5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 rounded-2xl font-black text-lg text-white shadow-2xl shadow-cyan-500/20 transition-all active:scale-[0.98] uppercase tracking-[0.2em]"
+                >
+                  Get Membership Access
+                </button>
+                <button onClick={() => logout()} className="mt-8 text-slate-500 hover:text-white text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 mx-auto">
+                    <LogOut size={14} /> Switch Account
+                </button>
+              </div>
+            ) : (
+              /* THE PUBLIC LANDING (Not Logged In) */
+              <div className="max-w-5xl mx-auto text-center animate-fade-in-up">
+                <div className="inline-block px-4 py-1.5 bg-cyan-500/10 border border-cyan-500/20 rounded-full text-cyan-400 text-xs font-bold uppercase tracking-widest mb-8">AI-Powered Market Engine</div>
+                <h1 className="text-7xl md:text-8xl font-black text-white mb-8 tracking-tighter leading-none">
+                  Global Market <br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">Intelligence.</span>
+                </h1>
+                <p className="text-xl text-slate-400 mb-12 max-w-2xl mx-auto leading-relaxed">Join 50,000+ traders using StockGPT to decode complex market trends and predict price trajectories with institutional accuracy.</p>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                  <button onClick={() => setIsAuthModalOpen(true)} className="px-10 py-5 bg-white text-slate-950 rounded-2xl font-black text-lg shadow-2xl shadow-white/5 hover:scale-105 transition-all flex items-center gap-3 uppercase tracking-widest">Start Analyzing <ChevronRight size={20}/></button>
+                  <button onClick={() => setIsAuthModalOpen(true)} className="px-10 py-5 bg-slate-900/50 text-white rounded-2xl font-bold text-lg border border-slate-700 hover:bg-slate-800 transition-all">View Pricing</button>
+                </div>
+              </div>
             )}
 
             {error && (
-               <div className="mt-10 mx-auto max-w-xl animate-in fade-in slide-in-from-top-4 duration-300">
-                 <div className={`rounded-xl p-5 flex flex-col items-center gap-3 shadow-lg border ${error.code === 'NO_API_KEY' ? 'bg-amber-900/20 border-amber-500/20 text-amber-100' : 'bg-rose-500/10 border-rose-500/20 text-rose-400'}`}>
-                    <div className="flex items-start gap-3 w-full justify-center text-center"><div className="shrink-0 mt-0.5">{renderErrorIcon(error.code)}</div><div className="text-base font-medium leading-tight">{error.message}</div></div>
-                    {error.code === 'NO_API_KEY' ? (
-                       <div className="w-full bg-slate-900/50 p-4 rounded-lg mt-3 text-left border border-amber-500/20">
-                           <p className="text-xs font-bold text-amber-400 uppercase tracking-wider mb-2">Deployed Version Fix:</p>
-                           <ol className="list-decimal list-inside text-sm text-slate-300 space-y-1.5 font-mono"><li>Go to your Hosting Dashboard (Vercel/Netlify).</li><li>Navigate to <span className="text-white font-bold">Settings &gt; Environment Variables</span>.</li><li>Add Key: <span className="text-cyan-300">API_KEY</span> Value: <span className="text-cyan-300">AIzaSy...</span></li><li><span className="text-white font-bold">Redeploy</span> your application.</li></ol>
-                       </div>
-                    ) : ( error.isRetryable ? <button onClick={handleRetry} className="mt-2 flex items-center gap-2 px-6 py-2 text-sm font-bold text-white bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors border border-slate-600 uppercase tracking-wide shadow-md"><RefreshCw size={14} /> Retry Analysis</button> : <p className="text-xs opacity-70 mt-1">Please modify your request and try again.</p> )}
-                 </div>
+               <div className="mt-12 mx-auto max-w-md p-5 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-center gap-4 animate-in fade-in">
+                  <div className="shrink-0">{renderErrorIcon(error.code)}</div>
+                  <div className="text-sm font-bold text-rose-400">{error.message}</div>
                </div>
             )}
           </div>
@@ -345,7 +245,6 @@ function App() {
 
       <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
       
-      {/* Forced Membership Gate: Cannot close if tier is FREE */}
       <SubscriptionModal 
         isOpen={isSubscriptionModalOpen} 
         onClose={() => user?.tier !== 'FREE' && setIsSubscriptionModalOpen(false)} 
@@ -353,6 +252,10 @@ function App() {
       />
 
       {analysisData && <SetAlertModal isOpen={isAlertModalOpen} onClose={() => setIsAlertModalOpen(false)} symbol={analysisData.symbol} currentPrice={analysisData.currentPrice || 0} />}
+      
+      <footer className="relative border-t border-slate-800 py-10 text-center text-[10px] text-slate-600 font-bold uppercase tracking-[0.3em] opacity-50">
+          © {new Date().getFullYear()} {APP_NAME} • Institutional Access Only • Secure Banking
+      </footer>
     </div>
   );
 }
