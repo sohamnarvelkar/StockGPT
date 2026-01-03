@@ -35,11 +35,13 @@ function App() {
   // Strict Membership Check
   const isSubscribed = user && user.tier !== 'FREE';
 
-  useEffect(() => {
-    if (user && user.tier === 'FREE') {
-        setIsSubscriptionModalOpen(true);
-    }
-  }, [user]);
+  // HELPER: Reset state and clear URL
+  const handleReset = () => {
+    setViewState(ViewState.LANDING);
+    setInputText('');
+    setAnalysisData(null);
+    setError(null);
+  };
 
   const performAnalysis = async (query: string) => {
     if (!isSubscribed) return;
@@ -60,13 +62,6 @@ function App() {
     e.preventDefault();
     if (!isSubscribed || !inputText.trim()) return;
     await performAnalysis(inputText);
-  };
-
-  const handleReset = () => {
-    setViewState(ViewState.LANDING);
-    setInputText('');
-    setAnalysisData(null);
-    setError(null);
   };
 
   const renderErrorIcon = (code: string = 'UNKNOWN') => {
@@ -129,7 +124,7 @@ function App() {
                             <div className="text-sm font-bold text-white leading-none mb-1">{user.name}</div>
                             {getTierBadge(user.tier)}
                         </div>
-                        <img src={user.avatar} className="w-8 h-8 rounded-full border border-slate-600" />
+                        {user.avatar ? <img src={user.avatar} className="w-8 h-8 rounded-full border border-slate-600" /> : <div className="w-8 h-8 bg-slate-700 rounded-full flex items-center justify-center"><User size={16} /></div>}
                     </button>
                     {showProfileMenu && (
                         <div className="absolute right-0 top-full mt-3 w-64 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl py-2 z-50">
@@ -137,14 +132,19 @@ function App() {
                                 <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1 block">Member Status</span>
                                 <div className="flex items-center justify-between">
                                     <span className="text-white font-bold">{user.tier}</span>
-                                    <button onClick={() => { setIsSubscriptionModalOpen(true); setShowProfileMenu(false); }} className="text-cyan-400 text-xs font-bold hover:underline">Manage</button>
+                                    {user.tier === 'FREE' ? (
+                                        <button onClick={() => { setIsSubscriptionModalOpen(true); setShowProfileMenu(false); }} className="text-cyan-400 text-xs font-bold hover:underline">Upgrade</button>
+                                    ) : (
+                                        <button onClick={() => { setIsSubscriptionModalOpen(true); setShowProfileMenu(false); }} className="text-slate-400 text-xs hover:underline">Billing</button>
+                                    )}
                                 </div>
                              </div>
-                             <button onClick={() => { logout(); handleReset(); }} className="w-full text-left px-5 py-3 text-sm text-rose-400 hover:bg-slate-800 flex items-center gap-3 border-t border-slate-800 mt-2">
+                             <button onClick={() => { logout(); handleReset(); setShowProfileMenu(false); }} className="w-full text-left px-5 py-3 text-sm text-rose-400 hover:bg-slate-800 flex items-center gap-3 border-t border-slate-800 mt-2">
                                 <LogOut size={16} /> Sign Out
                              </button>
                         </div>
                     )}
+                    {showProfileMenu && <div className="fixed inset-0 z-40" onClick={() => setShowProfileMenu(false)} />}
                 </div>
             ) : (
                 <button onClick={() => setIsAuthModalOpen(true)} className="px-6 py-2.5 bg-white text-slate-950 rounded-xl text-sm font-bold hover:bg-slate-100 transition-all shadow-xl shadow-white/5">Sign In</button>
@@ -170,7 +170,7 @@ function App() {
         {viewState === ViewState.LANDING && (
           <div className="max-w-7xl mx-auto px-6 pt-24 pb-20">
             {isSubscribed ? (
-              /* THE DASHBOARD (Only for Subscribed Users) */
+              /* THE DASHBOARD (Only for Paid Users) */
               <div className="max-w-4xl mx-auto text-center animate-fade-in-up">
                 <h1 className="text-6xl font-black text-white mb-6 tracking-tighter">
                   Institutional <span className="text-cyan-400">Intelligence.</span>
@@ -191,13 +191,13 @@ function App() {
                 </div>
               </div>
             ) : user ? (
-              /* THE MEMBERSHIP GATE (Logged in, FREE tier) */
+              /* THE MEMBERSHIP GATE (Logged in, FREE tier) - Non-Automatic */
               <div className="max-w-3xl mx-auto text-center animate-fade-in-up">
                 <div className="w-20 h-20 bg-cyan-500/10 rounded-3xl flex items-center justify-center mx-auto mb-8 border border-cyan-500/30">
                   <Lock size={40} className="text-cyan-400" />
                 </div>
-                <h2 className="text-5xl font-black text-white mb-6 tracking-tighter">Access Required</h2>
-                <p className="text-xl text-slate-400 mb-12 leading-relaxed">Your account is currently on the <span className="text-white font-bold">Free Tier</span>. Membership is required to unlock the StockGPT global analysis suite and real-time forecasting engine.</p>
+                <h2 className="text-5xl font-black text-white mb-6 tracking-tighter">Membership Required</h2>
+                <p className="text-xl text-slate-400 mb-12 leading-relaxed">Your account is ready. Complete your enrollment to unlock the StockGPT analysis suite and real-time market data.</p>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-12 text-left">
                   {['Real-time Quantitative Analysis', '12M Probabilistic Forecasts', 'Institutional News Sentiment', 'Historical Data Matrix'].map((feat, i) => (
@@ -212,14 +212,14 @@ function App() {
                   onClick={() => setIsSubscriptionModalOpen(true)}
                   className="w-full py-5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 rounded-2xl font-black text-lg text-white shadow-2xl shadow-cyan-500/20 transition-all active:scale-[0.98] uppercase tracking-[0.2em]"
                 >
-                  Get Membership Access
+                  Unlock Access with PayPal
                 </button>
                 <button onClick={() => logout()} className="mt-8 text-slate-500 hover:text-white text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 mx-auto">
-                    <LogOut size={14} /> Switch Account
+                    <LogOut size={14} /> Log Out
                 </button>
               </div>
             ) : (
-              /* THE PUBLIC LANDING (Not Logged In) */
+              /* THE PUBLIC LANDING (Not Logged In) - Static */
               <div className="max-w-5xl mx-auto text-center animate-fade-in-up">
                 <div className="inline-block px-4 py-1.5 bg-cyan-500/10 border border-cyan-500/20 rounded-full text-cyan-400 text-xs font-bold uppercase tracking-widest mb-8">AI-Powered Market Engine</div>
                 <h1 className="text-7xl md:text-8xl font-black text-white mb-8 tracking-tighter leading-none">
@@ -247,8 +247,8 @@ function App() {
       
       <SubscriptionModal 
         isOpen={isSubscriptionModalOpen} 
-        onClose={() => user?.tier !== 'FREE' && setIsSubscriptionModalOpen(false)} 
-        isMandatory={user?.tier === 'FREE'}
+        onClose={() => setIsSubscriptionModalOpen(false)} 
+        isMandatory={false} 
       />
 
       {analysisData && <SetAlertModal isOpen={isAlertModalOpen} onClose={() => setIsAlertModalOpen(false)} symbol={analysisData.symbol} currentPrice={analysisData.currentPrice || 0} />}
