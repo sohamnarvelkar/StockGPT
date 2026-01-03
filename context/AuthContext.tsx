@@ -1,5 +1,17 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, SubscriptionTier } from '../types';
+import { 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signInWithPopup, 
+  GoogleAuthProvider, 
+  signOut, 
+  onAuthStateChanged,
+  updateProfile,
+  User as FirebaseUser
+} from 'firebase/auth';
+import { auth } from '../services/firebase';
 
 interface AuthContextType {
   user: User | null;
@@ -17,93 +29,83 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Sync Firebase Auth state with internal state
   useEffect(() => {
-    // Check local storage for existing session
-    const storedUser = localStorage.getItem('stockgpt_user');
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (e) {
-        localStorage.removeItem('stockgpt_user');
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        // Map Firebase User to App User
+        // In a real app, tier would be fetched from Firestore/DB
+        const appUser: User = {
+          id: firebaseUser.uid,
+          name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+          email: firebaseUser.email || '',
+          avatar: firebaseUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${firebaseUser.email}`,
+          tier: (localStorage.getItem(`tier_${firebaseUser.uid}`) as SubscriptionTier) || 'FREE'
+        };
+        setUser(appUser);
+      } else {
+        setUser(null);
       }
-    }
-    setIsLoading(false);
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    if (!email.includes('@')) {
-        setIsLoading(false);
-        throw new Error("Please enter a valid email address.");
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to log in.");
+    } finally {
+      setIsLoading(false);
     }
-
-    const mockUser: User = {
-        id: 'u_' + Math.random().toString(36).substr(2, 9),
-        name: email.split('@')[0],
-        email: email,
-        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
-        tier: 'FREE'
-    };
-    
-    setUser(mockUser);
-    localStorage.setItem('stockgpt_user', JSON.stringify(mockUser));
-    setIsLoading(false);
   };
 
   const signup = async (email: string, password: string, name: string) => {
     setIsLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    const mockUser: User = {
-        id: 'u_' + Math.random().toString(36).substr(2, 9),
-        name: name,
-        email: email,
-        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}`,
-        tier: 'FREE'
-    };
-    setUser(mockUser);
-    localStorage.setItem('stockgpt_user', JSON.stringify(mockUser));
-    setIsLoading(false);
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      // Update profile with name
+      await updateProfile(userCredential.user, {
+        displayName: name
+      });
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to create account.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const googleSignIn = async () => {
     setIsLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    const names = ["Alex Trader", "Jordan Belfort", "Warren B.", "Crypto King"];
-    const randomName = names[Math.floor(Math.random() * names.length)];
-
-    const mockUser: User = {
-        id: 'g_' + Math.random().toString(36).substr(2, 9),
-        name: randomName,
-        email: `${randomName.toLowerCase().replace(' ', '.')}@gmail.com`,
-        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${randomName}&backgroundColor=c0aede`,
-        tier: 'FREE'
-    };
-    setUser(mockUser);
-    localStorage.setItem('stockgpt_user', JSON.stringify(mockUser));
-    setIsLoading(false);
+    const provider = new GoogleAuthProvider();
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (error: any) {
+      throw new Error(error.message || "Google sign in failed.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const updateSubscription = async (tier: SubscriptionTier, paymentId: string) => {
     setIsLoading(true);
-    // Simulate PayPal API Latency and Webhook verification
-    console.log("Verifying PayPal Transaction:", paymentId, "for plan:", tier);
-    await new Promise(resolve => setTimeout(resolve, 2500));
+    // In a production app, this would hit a backend and update Firestore
+    // Here we simulate a successful transaction update
+    await new Promise(resolve => setTimeout(resolve, 2000));
     
     if (user) {
         const updatedUser = { ...user, tier };
         setUser(updatedUser);
-        localStorage.setItem('stockgpt_user', JSON.stringify(updatedUser));
+        localStorage.setItem(`tier_${user.id}`, tier);
     }
     setIsLoading(false);
   };
 
   const logout = () => {
-    setUser(null);
-    localStorage.removeItem('stockgpt_user');
+    signOut(auth);
   };
 
   return (

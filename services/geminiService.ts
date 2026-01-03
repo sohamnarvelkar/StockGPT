@@ -200,7 +200,7 @@ export const analyzeStock = async (query: string): Promise<StockGPTResponse> => 
     throw new StockGPTError("No internet connection detected.", true, 'OFFLINE');
   }
 
-  // Check for API key (handling both undefined and empty string cases)
+  // Check for API key
   if (!process.env.API_KEY || process.env.API_KEY.trim() === '') {
     throw new StockGPTError("API Key is missing.", false, 'NO_API_KEY');
   }
@@ -275,12 +275,12 @@ export const analyzeStock = async (query: string): Promise<StockGPTResponse> => 
   const performAnalysis = async (): Promise<StockGPTResponse> => {
     const response: GenerateContentResponse = await withTimeout(
       ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3-pro-preview',
         contents: query,
         config: {
           systemInstruction: systemPrompt,
           tools: [{ googleSearch: {} }],
-          thinkingConfig: { thinkingBudget: 2048 }, 
+          thinkingConfig: { thinkingBudget: 4096 }, 
         }
       }),
       REQUEST_TIMEOUT_MS
@@ -312,8 +312,6 @@ export const analyzeStock = async (query: string): Promise<StockGPTResponse> => 
         try {
             rawData = JSON.parse(jsonString);
         } catch (parseError) {
-            // Attempt to fix common issues if parse fails?
-            // For now, rethrow to trigger retry
             throw new Error(`JSON Parse Failed: ${(parseError as Error).message}`);
         }
         
@@ -331,7 +329,6 @@ export const analyzeStock = async (query: string): Promise<StockGPTResponse> => 
         return rawData as StockGPTResponse;
 
     } catch (e: any) {
-        // If it's already a StockGPTError, rethrow
         if (e instanceof StockGPTError) throw e;
         throw new Error(e.message || "Failed to process AI response.");
     }
@@ -340,7 +337,6 @@ export const analyzeStock = async (query: string): Promise<StockGPTResponse> => 
   try {
     return await retryOperation(performAnalysis);
   } catch (error: any) {
-    // Final catch to ensure a clean error object reaches the UI
     throw mapGenAIError(error);
   }
 };
