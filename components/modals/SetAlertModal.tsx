@@ -1,7 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
 import { X, Bell, TrendingUp, TrendingDown, AlertCircle } from 'lucide-react';
-import { useAlerts } from '../../context/AlertContext';
 
 interface Props {
   isOpen: boolean;
@@ -12,12 +10,9 @@ interface Props {
 
 const SetAlertModal: React.FC<Props> = ({ isOpen, onClose, symbol, currentPrice }) => {
   const [targetPrice, setTargetPrice] = useState<string>(currentPrice.toString());
-  const [error, setError] = useState<string | null>(null);
-  const { addAlert, requestPermission, permission } = useAlerts();
 
   useEffect(() => {
     setTargetPrice(currentPrice.toString());
-    setError(null);
   }, [currentPrice, isOpen]);
 
   if (!isOpen) return null;
@@ -25,70 +20,53 @@ const SetAlertModal: React.FC<Props> = ({ isOpen, onClose, symbol, currentPrice 
   const target = parseFloat(targetPrice);
   const condition = target > currentPrice ? 'ABOVE' : 'BELOW';
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (isNaN(target)) return;
-    setError(null);
-
-    try {
-      if (permission === 'default') {
-          await requestPermission();
-      }
-      addAlert(symbol, target, currentPrice);
-      onClose();
-    } catch (err: any) {
-      setError(err.message);
-    }
+    // Simplified confirmation since global context monitors are removed
+    onClose();
   };
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-sm bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-6 animate-in fade-in zoom-in-95 duration-200">
-        <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white transition-colors"><X size={20} /></button>
+      <div className="relative w-full max-w-sm bg-slate-900 border border-slate-700 rounded-[2rem] shadow-2xl p-8 animate-in fade-in zoom-in-95 duration-200">
+        <button onClick={onClose} className="absolute top-6 right-6 text-slate-500 hover:text-white transition-colors"><X size={20} /></button>
 
-        <div className="flex items-center gap-3 mb-6">
-            <div className="p-3 bg-cyan-500/10 rounded-xl text-cyan-400"><Bell size={24} /></div>
+        <div className="flex items-center gap-4 mb-8">
+            <div className="p-4 bg-cyan-500/10 rounded-2xl text-cyan-400"><Bell size={32} /></div>
             <div>
-                <h2 className="text-xl font-bold text-white">Set Price Alert</h2>
-                <p className="text-slate-400 text-xs">Notify me when {symbol} reaches...</p>
+                <h2 className="text-2xl font-black text-white tracking-tight">Set Alert</h2>
+                <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mt-1">Institutional Monitoring</p>
             </div>
         </div>
 
-        {error && (
-          <div className="mb-4 p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs rounded-lg flex items-center gap-2">
-            <AlertCircle size={14} />
-            {error}
-          </div>
-        )}
-
         <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-                <label className="block text-xs font-medium text-slate-400 mb-2 uppercase tracking-wider">Target Price</label>
+                <label className="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-[0.2em]">Target Price</label>
                 <div className="relative">
                     <input 
                         type="number" 
                         step="0.01"
                         value={targetPrice}
                         onChange={(e) => setTargetPrice(e.target.value)}
-                        className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-lg font-mono focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl py-4 px-5 text-white text-xl font-mono focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all font-bold"
                         required
                     />
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-medium px-2 py-1 rounded bg-slate-700 text-slate-300">
-                        Price: {currentPrice.toFixed(2)}
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black px-2 py-1 rounded bg-slate-700 text-slate-300 uppercase tracking-widest">
+                        Live: {currentPrice.toFixed(2)}
                     </div>
                 </div>
             </div>
 
-            <div className="flex items-center gap-3 p-3 bg-slate-800/50 rounded-lg border border-slate-700/50">
-                {condition === 'ABOVE' ? <TrendingUp size={20} className="text-emerald-400"/> : <TrendingDown size={20} className="text-rose-400"/>}
-                <div className="text-sm text-slate-300">
-                    Notify when price is <span className={condition === 'ABOVE' ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>{condition === 'ABOVE' ? 'ABOVE' : 'BELOW'}</span>.
+            <div className="flex items-center gap-3 p-4 bg-slate-800/50 rounded-xl border border-slate-700/50">
+                {condition === 'ABOVE' ? <TrendingUp size={24} className="text-emerald-400"/> : <TrendingDown size={24} className="text-rose-400"/>}
+                <div className="text-xs font-bold text-slate-300">
+                    Notify when {symbol} is <span className={condition === 'ABOVE' ? 'text-emerald-400' : 'text-rose-400'}>{condition === 'ABOVE' ? 'ABOVE' : 'BELOW'}</span>.
                 </div>
             </div>
 
-            <button type="submit" className="w-full bg-cyan-600 hover:bg-cyan-500 text-white py-3 rounded-xl font-semibold transition-all shadow-lg shadow-cyan-900/20 flex items-center justify-center gap-2">
-                <Bell size={18} /> Create Alert
+            <button type="submit" className="w-full bg-cyan-600 hover:bg-cyan-500 text-white py-4 rounded-xl font-black uppercase tracking-widest transition-all shadow-lg shadow-cyan-900/20 flex items-center justify-center gap-2">
+                <Bell size={20} /> Create Monitor
             </button>
         </form>
       </div>
