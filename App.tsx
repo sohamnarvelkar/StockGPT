@@ -5,10 +5,11 @@ import { analyzeStock } from './services/geminiService';
 import LoadingSpinner from './components/ui/LoadingSpinner';
 import AnalysisDisplay from './components/AnalysisDisplay';
 import SetAlertModal from './components/modals/SetAlertModal';
+import ApiKeyModal from './components/modals/ApiKeyModal';
 import AuthModal from './components/auth/AuthModal';
 import { useAuth } from './context/AuthContext';
 import { useAlerts } from './context/AlertContext';
-import { Search, User as UserIcon, Bell, Trash2, Crown, LogOut, ShieldCheck } from 'lucide-react'; 
+import { Search, User as UserIcon, Bell, Trash2, Crown, LogOut, ShieldCheck, Key } from 'lucide-react'; 
 
 const IconTrend = () => <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>;
 
@@ -25,6 +26,7 @@ function App() {
   const [showAlertMenu, setShowAlertMenu] = useState(false);
   const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
 
   const performAnalysis = async (query: string) => {
     // REDIRECTED LOGIC REMOVED: No mandatory auth gate. 
@@ -86,7 +88,15 @@ function App() {
             <span className="font-bold text-2xl tracking-tighter text-white">{APP_NAME}</span>
           </div>
 
-          <div className="flex items-center gap-5">
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={() => setIsApiKeyModalOpen(true)} 
+              className="p-2 text-slate-400 hover:text-cyan-400 transition-colors" 
+              title="Configure API Key"
+            >
+              <Key size={20} />
+            </button>
+
             <div className="relative">
                 <button onClick={() => setShowAlertMenu(!showAlertMenu)} className="p-2 text-slate-400 hover:text-white transition-colors relative">
                   <Bell size={22} />
@@ -199,8 +209,16 @@ function App() {
             </div>
 
             {error && (
-               <div className="mt-12 mx-auto max-w-md p-5 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-center gap-4">
-                  <div className="text-sm font-bold text-rose-400">{error.message}</div>
+               <div className="mt-12 mx-auto max-w-lg p-5 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="text-sm font-bold text-rose-400 text-center sm:text-left">{error.message}</div>
+                  {error.code === 'NO_API_KEY' && (
+                    <button
+                      onClick={() => setIsApiKeyModalOpen(true)}
+                      className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-black uppercase tracking-wider whitespace-nowrap transition-all shadow-md shadow-cyan-900/30"
+                    >
+                      Enter Key
+                    </button>
+                  )}
                </div>
             )}
           </div>
@@ -212,6 +230,11 @@ function App() {
       </footer>
 
       <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
+      <ApiKeyModal 
+        isOpen={isApiKeyModalOpen} 
+        onClose={() => setIsApiKeyModalOpen(false)} 
+        onKeySaved={() => { if (inputText.trim()) performAnalysis(inputText); }} 
+      />
       {analysisData && <SetAlertModal isOpen={isAlertModalOpen} onClose={() => setIsAlertModalOpen(false)} symbol={analysisData.symbol} currentPrice={analysisData.currentPrice || 0} />}
     </div>
   );
