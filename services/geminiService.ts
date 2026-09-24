@@ -4,6 +4,28 @@ import { StockGPTResponse } from "../types";
 // API Key must be obtained from process.env.API_KEY as per Google GenAI guidelines
 const REQUEST_TIMEOUT_MS = 120000; // 120s for deep analysis
 
+const DEFAULT_MODEL = 'gemini-2.5-flash';
+const FALLBACK_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'];
+
+const getModelCandidates = (): string[] => {
+  const preferred = (process.env.GEMINI_MODEL || DEFAULT_MODEL).trim();
+  return [...new Set([preferred, ...FALLBACK_MODELS])];
+};
+
+const isQuotaOrRateLimitError = (err: unknown): boolean => {
+  const e = err as { status?: number; code?: number | string; message?: string };
+  const status = e.status ?? (typeof e.code === 'number' ? e.code : undefined);
+  if (status === 429) return true;
+  const msg = (e.message || '').toLowerCase();
+  return (
+    msg.includes('quota') ||
+    msg.includes('rate limit') ||
+    msg.includes('resource_exhausted') ||
+    msg.includes('resource exhausted') ||
+    msg.includes('exceeded your current quota')
+  );
+};
+
 export class StockGPTError extends Error {
   constructor(
     message: string, 
@@ -33,8 +55,12 @@ const mapGenAIError = (err: any): StockGPTError => {
     }
 
     // Quota / Rate Limiting (429)
-    if (status === 429 || msg.includes('quota') || msg.includes('limit') || msg.includes('exhausted')) {
-        return new StockGPTError("System traffic is high. Please wait a moment and try again.", true, 'RATE_LIMIT');
+    if (isQuotaOrRateLimitError(err)) {
+        return new StockGPTError(
+          "Gemini API quota exceeded for the selected model. Wait a few minutes, check usage at ai.dev/rate-limit, or set GEMINI_MODEL=gemini-2.5-flash in .env.local.",
+          true,
+          'RATE_LIMIT'
+        );
     }
 
     // Safety Filters
@@ -192,6 +218,28 @@ async function retryOperation<T>(operation: () => Promise<T>, retries = 2, delay
   }
 }
 
+export const getApiKey = (): string => {
+  let key = '';
+  if (typeof process !== 'undefined' && process.env?.API_KEY) {
+    key = process.env.API_KEY;
+  }
+  if (!key && typeof import.meta !== 'undefined' && (import.meta as any).env) {
+    const metaEnv = (import.meta as any).env;
+    key =
+      metaEnv.VITE_GEMINI_API_KEY ||
+      metaEnv.VITE_GOOGLE_API_KEY ||
+      metaEnv.VITE_API_KEY ||
+      metaEnv.GEMINI_API_KEY ||
+      metaEnv.GOOGLE_API_KEY ||
+      metaEnv.API_KEY ||
+      '';
+  }
+  if (!key && typeof localStorage !== 'undefined') {
+    key = localStorage.getItem('custom_gemini_api_key') || '';
+  }
+  return key.trim();
+};
+
 export const analyzeStock = async (query: string): Promise<StockGPTResponse> => {
   const cleanQuery = query.trim();
   if (!cleanQuery) throw new StockGPTError("Query cannot be empty.", false, 'INVALID_INPUT');
@@ -201,11 +249,16 @@ export const analyzeStock = async (query: string): Promise<StockGPTResponse> => 
   }
 
   // Check for API key
-  if (!process.env.API_KEY || process.env.API_KEY.trim() === '') {
-    throw new StockGPTError("API Key is missing.", false, 'NO_API_KEY');
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    throw new StockGPTError(
+      "Gemini API Key is missing. Please configure GEMINI_API_KEY / VITE_GOOGLE_API_KEY in your Vercel project settings or .env.local file.",
+      false,
+      'NO_API_KEY'
+    );
   }
 
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey });
 
   const systemPrompt = `
     You are StockGPT, an elite quantitative financial analysis engine.
@@ -272,16 +325,22 @@ export const analyzeStock = async (query: string): Promise<StockGPTResponse> => 
     }
   `;
 
-  const performAnalysis = async (): Promise<StockGPTResponse> => {
+  const runWithModel = async (model: string): Promise<StockGPTResponse> => {
+    const config: any = {
+      systemInstruction: systemPrompt,
+      tools: [{ googleSearch: {} }],
+    };
+
+    // Only set thinking budget for models that support it
+    if (model.includes('2.5') || model.includes('thinking')) {
+      config.thinkingConfig = { thinkingBudget: 2048 };
+    }
+
     const response: GenerateContentResponse = await withTimeout(
       ai.models.generateContent({
-        model: 'gemini-3-pro-preview',
+        model,
         contents: query,
-        config: {
-          systemInstruction: systemPrompt,
-          tools: [{ googleSearch: {} }],
-          thinkingConfig: { thinkingBudget: 4096 }, 
-        }
+        config,
       }),
       REQUEST_TIMEOUT_MS
     );
@@ -294,44 +353,57 @@ export const analyzeStock = async (query: string): Promise<StockGPTResponse> => 
     let text = response.text || "";
     if (!text) throw new Error("Received empty response from AI.");
 
-    try {
-        // Advanced cleaning
-        text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-        
-        // Find JSON boundaries
-        const jsonStart = text.indexOf('{');
-        const jsonEnd = text.lastIndexOf('}');
-        
-        if (jsonStart === -1 || jsonEnd === -1 || jsonEnd <= jsonStart) {
-             throw new Error("No valid JSON structure found in response.");
-        }
-        
-        const jsonString = text.substring(jsonStart, jsonEnd + 1);
-        let rawData;
-        
-        try {
-            rawData = JSON.parse(jsonString);
-        } catch (parseError) {
-            throw new Error(`JSON Parse Failed: ${(parseError as Error).message}`);
-        }
-        
-        rawData = repairData(rawData);
+    text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
 
-        if (!validateSchema(rawData)) {
-            console.error("Schema Validation Failed:", rawData);
-            throw new Error("Data missing critical fields (symbol, signal, sections).");
-        }
+    const jsonStart = text.indexOf('{');
+    const jsonEnd = text.lastIndexOf('}');
 
-        if (candidate.groundingMetadata) {
-            rawData.groundingMetadata = candidate.groundingMetadata;
-        }
-
-        return rawData as StockGPTResponse;
-
-    } catch (e: any) {
-        if (e instanceof StockGPTError) throw e;
-        throw new Error(e.message || "Failed to process AI response.");
+    if (jsonStart === -1 || jsonEnd === -1 || jsonEnd <= jsonStart) {
+         throw new Error("No valid JSON structure found in response.");
     }
+
+    const jsonString = text.substring(jsonStart, jsonEnd + 1);
+    let rawData;
+
+    try {
+        rawData = JSON.parse(jsonString);
+    } catch (parseError) {
+        throw new Error(`JSON Parse Failed: ${(parseError as Error).message}`);
+    }
+
+    rawData = repairData(rawData);
+
+    if (!validateSchema(rawData)) {
+        console.error("Schema Validation Failed:", rawData);
+        throw new Error("Data missing critical fields (symbol, signal, sections).");
+    }
+
+    if (candidate?.groundingMetadata) {
+        rawData.groundingMetadata = candidate.groundingMetadata;
+    }
+
+    return rawData as StockGPTResponse;
+  };
+
+  const performAnalysis = async (): Promise<StockGPTResponse> => {
+    const models = getModelCandidates();
+    let lastError: unknown;
+
+    for (const model of models) {
+      try {
+        return await runWithModel(model);
+      } catch (error: unknown) {
+        lastError = error;
+        if (isQuotaOrRateLimitError(error)) {
+          console.warn(`Model ${model} quota/rate limited; trying next model if available.`);
+          continue;
+        }
+        if (error instanceof StockGPTError) throw error;
+        throw new Error((error as Error).message || "Failed to process AI response.");
+      }
+    }
+
+    throw lastError ?? new Error("All configured Gemini models are unavailable.");
   };
 
   try {

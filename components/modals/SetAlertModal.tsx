@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { X, Bell, TrendingUp, TrendingDown, AlertCircle } from 'lucide-react';
 
+import { useAlerts } from '../../context/AlertContext';
+
 interface Props {
   isOpen: boolean;
   onClose: () => void;
@@ -10,9 +12,12 @@ interface Props {
 
 const SetAlertModal: React.FC<Props> = ({ isOpen, onClose, symbol, currentPrice }) => {
   const [targetPrice, setTargetPrice] = useState<string>(currentPrice.toString());
+  const [error, setError] = useState<string | null>(null);
+  const { addAlert, requestPermission } = useAlerts();
 
   useEffect(() => {
     setTargetPrice(currentPrice.toString());
+    setError(null);
   }, [currentPrice, isOpen]);
 
   if (!isOpen) return null;
@@ -20,10 +25,16 @@ const SetAlertModal: React.FC<Props> = ({ isOpen, onClose, symbol, currentPrice 
   const target = parseFloat(targetPrice);
   const condition = target > currentPrice ? 'ABOVE' : 'BELOW';
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simplified confirmation since global context monitors are removed
-    onClose();
+    setError(null);
+    try {
+      await requestPermission();
+      addAlert(symbol, target, currentPrice);
+      onClose();
+    } catch (err: any) {
+      setError(err.message || 'Failed to create alert');
+    }
   };
 
   return (
@@ -64,6 +75,13 @@ const SetAlertModal: React.FC<Props> = ({ isOpen, onClose, symbol, currentPrice 
                     Notify when {symbol} is <span className={condition === 'ABOVE' ? 'text-emerald-400' : 'text-rose-400'}>{condition === 'ABOVE' ? 'ABOVE' : 'BELOW'}</span>.
                 </div>
             </div>
+
+            {error && (
+              <div className="flex items-center gap-2 p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-xs text-rose-400">
+                <AlertCircle size={16} />
+                <span>{error}</span>
+              </div>
+            )}
 
             <button type="submit" className="w-full bg-cyan-600 hover:bg-cyan-500 text-white py-4 rounded-xl font-black uppercase tracking-widest transition-all shadow-lg shadow-cyan-900/20 flex items-center justify-center gap-2">
                 <Bell size={20} /> Create Monitor

@@ -105,6 +105,7 @@ function App() {
                         </div>
                     </div>
                 )}
+                {showAlertMenu && <div className="fixed inset-0 z-40" onClick={() => setShowAlertMenu(false)} />}
             </div>
 
             {user ? (
