@@ -5,7 +5,7 @@ import { StockGPTResponse } from "../types";
 const REQUEST_TIMEOUT_MS = 120000; // 120s for deep analysis
 
 const DEFAULT_MODEL = 'gemini-2.5-flash';
-const FALLBACK_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'];
+const FALLBACK_MODELS = ['gemini-2.5-flash'];
 
 const getModelCandidates = (): string[] => {
   const preferred = (process.env.GEMINI_MODEL || DEFAULT_MODEL).trim();
